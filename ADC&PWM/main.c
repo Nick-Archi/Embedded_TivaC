@@ -53,7 +53,7 @@ void writeStringToUart1(char* str);
 void hard_initB();
 void ledToggle();
 void uart1int();
-void motorMove(unsigned long leftPower, unsigned long rightPower, int dir);
+void motorMove(unsigned long leftPower, unsigned long rightPower, int ,int);
 void motorStop();
 float distFront();
 float distRight();
@@ -62,7 +62,8 @@ void adc_init();
 volatile int16_t i16ToggleCount=0;
 float error_prior = 0;
 float integral = 0;
-float kp = .2;
+int i=100;
+float kp = .1;
 float ki = .2;
 float kd = .3;
 uint32_t ui32ADC1Value[2] = {};
@@ -98,7 +99,7 @@ void uart1int(void){
                     i16ToggleCount++;
                 }
                 if(comms[count-2]=='b' && comms[count-1]=='b') {
-                    motorMove(200,200,1);
+                    motorMove(200,200,1,1);
                 }
                 if(comms[count-2]=='d' && comms[count-1]=='r') {
                        distRight();
@@ -107,10 +108,11 @@ void uart1int(void){
                     distFront();
                   }
                 if(comms[count-2]=='f' && comms[count-1]=='f') {
-                    motorMove(200,200,0);
+                    motorMove(200,200,0,0);
                 }
                 if(comms[count-2]=='s' && comms[count-1]=='s') {
                     motorStop();
+                    TimerDisable(TIMER2_BASE, TIMER_A);
                 }
                 if(comms[count-2]=='p' && comms[count-1]=='d') {
                     TimerEnable(TIMER2_BASE, TIMER_A);
@@ -136,16 +138,28 @@ void uart1int(void){
 
 void PID_start()
     {
-        float error=0;
-        error= 4 - distRight();
+
+        float error = 0;
+        error = 3000 - distRight();
         integral = integral + (error*.50);
         float derivative = (error-error_prior)/.50;
         float output = kp*error;//+kd*derivative;//+ki*integral+kd*derivative;
         error_prior=error;
-        if(output>.05){motorMove(200,100,0);}
-        if(output<-.05){motorMove(100,200,0);}
-        else{motorMove(200,200,0);}
+        if(output>0)
+            {
+                motorMove(100,200,0,0);i=100;}
+        if(output<0)
+            {
+                motorMove(200,100,0,0);i=100;}
+//        else
+//            {
+//                if(i>100)
+//                       i=100;
+//                motorMove(100,100,0,0);
+//                i++;
+//            }
     }
+
 void ledToggle(void)
 {
     // LED values - 2=RED, 4=BLUE, 8=GREEN
@@ -158,22 +172,24 @@ void ledToggle(void)
                GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
     }
 
-void motorMove(unsigned long leftPower, unsigned long rightPower, int dir){
+void motorMove(unsigned long leftPower, unsigned long rightPower, int rightdir, int leftdir){
 
     PWMOutputState (PWM1_BASE, PWM_OUT_3_BIT | PWM_OUT_2_BIT, true);
-    if( dir ) {//if direction is forward
+    if( rightdir ) {//if direction is forward
         GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6, 0b01000000);
+        PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3,rightPower);
+    }
+    else {
+        GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6, 0);
+        PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3,rightPower);
+    }
+    if( leftdir ) {//if direction is forward
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
         PWMPulseWidthSet(PWM1_BASE, PWM_OUT_2,leftPower);
-        PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3,rightPower);
-
     }
-    else  {
+    else {
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0);
-        GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6, 0);
         PWMPulseWidthSet(PWM1_BASE, PWM_OUT_2,leftPower);
-        PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3,rightPower);
-
     }
 
 }
@@ -192,12 +208,12 @@ float distRight(){
         //retrieve data
         ADCSequenceDataGet(ADC0_BASE, 3, &result);
 
-        result= (2080*7)/(result);
-        return (float)result;
-        //char  str[50] = "hello";
+        //result= (2080*7)/(result);
+
+       // char  str[50];
         //sprintf(str,"Right: %u cm",result);
         //writeStringToUart1(str);
-
+        return (float)result;
 }
 
 float distFront(){
@@ -211,7 +227,7 @@ float distFront(){
           //retrieve data
           ADCSequenceDataGet(ADC1_BASE, 3, &result1);
 
-          result1= (2080*7)/(result1);
+         // result1= (2080*7)/(result1);
           return (float)result1;
 
           //char  str[20]= "                    ";
