@@ -58,14 +58,16 @@ void motorStop();
 float distFront();
 float distRight();
 void adc_init();
+void timerISR();
+void Uturn();
 
 volatile int16_t i16ToggleCount=0;
 float error_prior = 0;
 float integral = 0;
 int i=100;
-float kp = .1;
-float ki = .2;
-float kd = .3;
+float kp = .5;
+float ki = .05;
+float kd = .2;
 uint32_t ui32ADC1Value[2] = {};
 uint32_t ui32ADC0Value[2] = {};
 uint32_t result=0;
@@ -101,6 +103,30 @@ void uart1int(void){
                 if(comms[count-2]=='b' && comms[count-1]=='b') {
                     motorMove(200,200,1,1);
                 }
+                if(comms[count-5]=='a' && comms[count-4]=='d') {
+                    char  adj[3];
+                    int i;
+                    for(i=3;i<count;i++){
+                           adj[0]=comms[count-i];
+                                 }
+                    kd=atof(adj);
+                                }
+                if(comms[count-5]=='a' && comms[count-4]=='p') {
+                                    char  adj[3];
+                                    int i;
+                                    for(i=3;i<count;i++){
+                                           adj[0]=comms[count-i];
+                                                 }
+                                    kp=atof(adj);
+                                                }
+                if(comms[count-5]=='a' && comms[count-4]=='i') {
+                                    char  adj[3];
+                                    int i;
+                                    for(i=3;i<count;i++){
+                                           adj[0]=comms[count-i];
+                                                 }
+                                    ki=atof(adj);
+                                                }
                 if(comms[count-2]=='d' && comms[count-1]=='r') {
                        distRight();
                   }
@@ -112,9 +138,10 @@ void uart1int(void){
                 }
                 if(comms[count-2]=='s' && comms[count-1]=='s') {
                     motorStop();
-                    TimerDisable(TIMER2_BASE, TIMER_A);
+                    SysCtlPeripheralDisable(SYSCTL_PERIPH_TIMER2);
                 }
                 if(comms[count-2]=='p' && comms[count-1]=='d') {
+                    SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
                     TimerEnable(TIMER2_BASE, TIMER_A);
                 }
                 if(comms[count-2]=='o' && comms[count-1]=='f')
@@ -135,30 +162,61 @@ void uart1int(void){
       }
 }
 
-
 void PID_start()
     {
 
         float error = 0;
-        error = 3000 - distRight();
-        integral = integral + (error*.50);
-        float derivative = (error-error_prior)/.50;
-        float output = kp*error;//+kd*derivative;//+ki*integral+kd*derivative;
+        error = 2200 - distRight();
+        integral = integral + (error*.050);
+        if(integral<-1000)
+            integral=-500;
+        else if (integral>1000)
+            integral=500;
+        float derivative = (error-error_prior)/.050;
+        float distFrt=distFront();
+        float distRt=distRight();
+        float output = kp*error+kd*derivative+ki*integral;
         error_prior=error;
-        if(output>0)
+        if(distFrt>3000 && distRt>1000)
+                 {
+//            writeStringToUart1("UTURN");
+            int spin=0;
+            while(spin<1)
+                      {
+                                float f = distFront();
+                                if((f<850))spin++;
+                                 motorMove(35,35,0,1);
+                      }
+
+                 }
+        else if(output>20 && output<1000)
             {
-                motorMove(100,200,0,0);i=100;}
-        if(output<0)
+                motorMove(200,100,0,0);
+               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
+            }
+        else if(output>1000   )
+             {
+                 motorMove(250,50,0,0);}
+        else if(output<-20 && output>-1000 )
             {
-                motorMove(200,100,0,0);i=100;}
-//        else
-//            {
-//                if(i>100)
-//                       i=100;
-//                motorMove(100,100,0,0);
-//                i++;
-//            }
+                motorMove(100,200,0,0);
+               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
+            }
+        else if(output<-1000  )
+            {
+                motorMove(50,250,0,0);}
+      else{motorMove(250,250,0,0);}
+
     }
+
+//void Uturn()
+//{
+//
+//               while(!(distFront()<300))
+//                            {
+//                                    motorMove(100,100,0,1);
+//                         }
+//}
 
 void ledToggle(void)
 {
@@ -198,6 +256,11 @@ void motorStop(){
     PWMOutputState (PWM1_BASE, PWM_OUT_3_BIT | PWM_OUT_2_BIT, false);
 }
 
+//void timerISR(){
+//    TimerIntClear(TIMER2_BASE,TIMER_TIMA_TIMEOUT);
+//    Swi_post(PID_time);
+//}
+
 float distRight(){
         //Clear interrupt flag
         ADCIntClear(ADC0_BASE, 3);
@@ -208,11 +271,10 @@ float distRight(){
         //retrieve data
         ADCSequenceDataGet(ADC0_BASE, 3, &result);
 
-        //result= (2080*7)/(result);
 
-       // char  str[50];
-        //sprintf(str,"Right: %u cm",result);
-        //writeStringToUart1(str);
+//        char  str[20];
+//        snprintf(str,20,"Right: %u cm",result);
+//        writeStringToUart1(str);
         return (float)result;
 }
 
@@ -227,12 +289,13 @@ float distFront(){
           //retrieve data
           ADCSequenceDataGet(ADC1_BASE, 3, &result1);
 
+//          char  str[20];
+//         snprintf(str,20,"Front: %u cm",result1);
+//          writeStringToUart1(str);
          // result1= (2080*7)/(result1);
           return (float)result1;
 
-          //char  str[20]= "                    ";
-         // sprintf(str,"Front: %u cm",result1);
-          //writeStringToUart1(str);
+
 
 }
 
