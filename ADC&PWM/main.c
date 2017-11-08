@@ -73,6 +73,7 @@ uint32_t ui32ADC0Value[2] = {};
 uint32_t result=0;
 uint32_t result1=0;
 int count = 0;
+int stopper=1;
 char comms[200];
 
 int main(void) {
@@ -103,6 +104,9 @@ void uart1int(void){
                 if(comms[count-2]=='b' && comms[count-1]=='b') {
                     motorMove(200,200,1,1);
                 }
+                if(comms[count-2]=='s' && comms[count-1]=='t') {
+                                    stopper=0;
+                                }
                 if(comms[count-5]=='a' && comms[count-4]=='d') {
                     char  adj[3];
                     int i;
@@ -166,7 +170,7 @@ void PID_start()
     {
 
         float error = 0;
-        error = 2200 - distRight();
+        error = 1800 - distRight();
         integral = integral + (error*.050);
         if(integral<-1000)
             integral=-500;
@@ -181,12 +185,15 @@ void PID_start()
                  {
 //            writeStringToUart1("UTURN");
             int spin=0;
-            while(spin<1)
+            while(spin<1 && stopper)
                       {
                                 float f = distFront();
                                 if((f<850))spin++;
                                  motorMove(35,35,0,1);
                       }
+            stopper=1;
+            error=0;
+            integral=0;
 
                  }
         else if(output>20 && output<1000)
