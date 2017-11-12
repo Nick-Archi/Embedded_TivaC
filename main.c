@@ -1523,6 +1523,7 @@ int count = 0;
 int inCount = 0;
 int stopper=1;
 char comms[200];
+float light = 6;
 
 int main(void) {
 
@@ -1563,6 +1564,14 @@ void uart1int(void){
                 }
                 kd=atof(adj);
             }
+            if(comms[count-5]=='l' && comms[count-4]=='i') {
+                          char  adj[3];
+                          int i;
+                          for(i=2;i<count;i++){
+                              adj[i-2]=comms[i];
+                          }
+                          light=atof(adj);
+                      }
             if(comms[count-5]=='a' && comms[count-4]=='p') {
                 char  adj[3];
                 int i;
@@ -1953,7 +1962,7 @@ void infraRed() {
     else{
         GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_2);
         if(GPIOPinRead(GPIO_PORTF_BASE, GPIO_PIN_2) == 0) {
-            if(inCount > 5) {//6 works
+            if(inCount > light) {//6 works
                 GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_3,0b00001110);
                 Timer_stop(timer1);
                 motorStop();
