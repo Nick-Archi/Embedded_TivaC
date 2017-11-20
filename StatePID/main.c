@@ -14,11 +14,13 @@
 #include <xdc/runtime/Log.h>                //needed for any Log_info() call
 #include <xdc/cfg/global.h>
 
-#include <drive.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <drive.h>
+#include <data.h>
+
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "inc/hw_gpio.h"

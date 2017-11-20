@@ -46,10 +46,10 @@
 
 
 
-void motorMove(unsigned long leftPower, unsigned long rightPower, int ,int);
-void motorStop();
-float distFront();
-float distRight();
+//void motorMove(unsigned long leftPower, unsigned long rightPower, int ,int);
+//void motorStop();
+//float distFront();
+//float distRight();
 
 
 float error_prior = 0;
@@ -66,6 +66,7 @@ int stopper=1;
 int pid_state=1;
 int spin =0;
 int max=150;
+float distRt;
 
 void PID_start()
     {
@@ -80,7 +81,7 @@ void PID_start()
             integral=500;
         float derivative = (error-error_prior)/.050;
         float distFrt=distFront();
-        float distRt=distRight();
+        distRt=distRight();
         float output = kp*error;//+kd*derivative+ki*integral;
         error_prior=error;
         if(output > max){
