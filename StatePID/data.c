@@ -52,14 +52,13 @@
  *	rightWallDist -> used to receive the right wall distance
  *	fullBufferPtr -> global pointer used to hold full buffer value
  */
-char pingPong1[20];
-char pingPong2[20];
+char pingPong1[40];
+char pingPong2[40];
 char* fullBufferPtr;
 
 extern float distRt;
 
 static int bufferFlag = true;
-static int fullFlag = false;
 static int buffCount = 0;
 
 uint32_t rightWallDist;
@@ -84,21 +83,23 @@ void AcquireData(){
 		rightWallDist = (uint32_t)distRt;
 
 		// check what buffer to use
+		/*
+		 * Converts the unsigned int -> hex value which is then stored
+		 * in the address location of the pingPong buffer. However, ex)
+		 * 246(decimal) => f6 (hex) => 66,36(in ascii) so this will take
+		 * up two indices...
+		 */
 		if(bufferFlag){ // write to first buffer
-//			pingPong1[buffCount] = rightWallDist;
-//			buffCount++;
-			sprintf(pingPong1[buffCount], "%x ", rightWallDist);
-			buffCount++;
+			sprintf(&pingPong1[buffCount], "%x ", rightWallDist);
+			buffCount = buffCount + 2;
 		}
 		else{
-//			pingPong2[buffCount] = rightWallDist;
-//			buffCount++;
-			sprintf(pingPong2[buffCount], "%x ", rightWallDist);
-			buffCount++;
+			sprintf(&pingPong2[buffCount], "%x ", rightWallDist);
+			buffCount = buffCount + 2;
 		}
 
 		// check if buffer is full
-		if(buffCount == 20){
+		if(buffCount == 40){
 
 			// post TxDataSema
 			Semaphore_post(TxDataSema);
@@ -119,7 +120,7 @@ void DataClockFn(){
 
 /*
  * Function to copy full buffer
- * funciton may wait on the TX_RWLock?
+ * function may wait on the TX_RWLock?
  */
 void StoreTxBufferPtr_W(char* bufferPtr){
 
