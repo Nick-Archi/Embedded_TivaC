@@ -66,7 +66,7 @@ int stopper=1;
 int pid_state=1;
 int spin =0;
 int max=150;
-float distRt;
+float error;
 
 void PID_start()
     {
@@ -81,7 +81,7 @@ void PID_start()
             integral=500;
         float derivative = (error-error_prior)/.050;
         float distFrt=distFront();
-        distRt=distRight();
+        float distRt=distRight();
         float output = kp*error;//+kd*derivative+ki*integral;
         error_prior=error;
         if(output > max){

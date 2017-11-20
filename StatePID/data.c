@@ -38,6 +38,7 @@
 //----------------------------------------
 #define true 1
 #define false 0
+#define MAX 255
 
 
 //------------------------------------------
@@ -56,13 +57,12 @@ char pingPong1[40];
 char pingPong2[40];
 char* fullBufferPtr;
 
-extern float distRt;
+extern float error;
 
 static int bufferFlag = true;
 static int buffCount = 0;
 
-uint32_t rightWallDist;
-
+int32_t rightWallDist;
 
 //------------------------------------------
 // Functions
@@ -80,16 +80,26 @@ void AcquireData(){
 		Semaphore_pend(DataSema, BIOS_WAIT_FOREVER);
 
 		// get right wall value & convert to hex
-		rightWallDist = (uint32_t)distRt;
+		rightWallDist = (int32_t)error;
+
+		// check if the value is negative or if it's > 255
+		if(rightWallDist < 0){
+			rightWallDist = abs(rightWallDist);
+		}
+
+		if(rightWallDist > MAX){
+			rightWallDist = MAX;	// cap the value at 255
+		}
+
 
 		// check what buffer to use
 		/*
-		 * Converts the unsigned int -> hex value which is then stored
+		 * Converts the singed int -> hex value which is then stored
 		 * in the address location of the pingPong buffer. However, ex)
 		 * 246(decimal) => f6 (hex) => 66,36(in ascii) so this will take
 		 * up two indices...
 		 */
-		if(bufferFlag){ // write to first buffer
+		if(bufferFlag){ // write to first buffer if true
 			sprintf(&pingPong1[buffCount], "%x ", rightWallDist);
 			buffCount = buffCount + 2;
 		}
@@ -144,12 +154,12 @@ void TxData(){
 
 		case 0: // switch to pingPong2
 				bufferFlag = true;
-				StoreTxBufferPtr_W(pingPong1);
+				StoreTxBufferPtr_W(pingPong2);
 				break;
 
 		case 1:
 				bufferFlag = false;
-				StoreTxBufferPtr_W(pingPong2);
+				StoreTxBufferPtr_W(pingPong1);
 				break;
 
 		default:
