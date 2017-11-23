@@ -23,6 +23,8 @@
 #include <stdbool.h>
 #include <data.h>
 #include <drive.h>
+#include <TxResponse.h>
+
 
 #include "inc/hw_types.h"
 #include "inc/hw_memmap.h"
@@ -50,19 +52,19 @@
  *	bufferFlag -> flag to indicate which buffer to write to
  *	fullFlag -> flag to indicate when a buffer is full
  *	buffCount -> used to count to 20
- *	rightWallDist -> used to receive the right wall distance
+ *	rightWallErr -> used to receive the right wall error value
  *	fullBufferPtr -> global pointer used to hold full buffer value
  */
-char pingPong1[40];
-char pingPong2[40];
-char* fullBufferPtr;
+char pingPong1[47];	// command value takes [0] & [1], Null takes [44], and colon is [2]
+char pingPong2[47];
 
 extern float error;
+extern char comms[200]; // milestone 9
 
 static int bufferFlag = true;
-static int buffCount = 0;
+static int buffCount = 3; // offset value so command takes [0] & [1]
 
-int32_t rightWallDist;
+int32_t rightWallErr;
 
 //------------------------------------------
 // Functions
@@ -80,15 +82,15 @@ void AcquireData(){
 		Semaphore_pend(DataSema, BIOS_WAIT_FOREVER);
 
 		// get right wall value & convert to hex
-		rightWallDist = (int32_t)error;
+		rightWallErr = (int32_t)error;
 
 		// check if the value is negative or if it's > 255
-		if(rightWallDist < 0){
-			rightWallDist = abs(rightWallDist);
+		if(rightWallErr < 0){
+			rightWallErr = abs(rightWallErr);
 		}
 
-		if(rightWallDist > MAX){
-			rightWallDist = MAX;	// cap the value at 255
+		if(rightWallErr > MAX){
+			rightWallErr = MAX;	// cap the value at 255
 		}
 
 
@@ -99,17 +101,17 @@ void AcquireData(){
 		 * 246(decimal) => f6 (hex) => 66,36(in ascii) so this will take
 		 * up two indices...
 		 */
-		if(bufferFlag){ // write to first buffer if true
-			sprintf(&pingPong1[buffCount], "%x ", rightWallDist);
+		if(bufferFlag){ // write to pingPong1
+			sprintf(&pingPong1[buffCount], "%x ", rightWallErr);
 			buffCount = buffCount + 2;
 		}
 		else{
-			sprintf(&pingPong2[buffCount], "%x ", rightWallDist);
+			sprintf(&pingPong2[buffCount], "%x ", rightWallErr);
 			buffCount = buffCount + 2;
 		}
 
 		// check if buffer is full
-		if(buffCount == 40){
+		if(buffCount == 43){ // 20 * 2(values) + 3(offset)
 
 			// post TxDataSema
 			Semaphore_post(TxDataSema);
@@ -129,16 +131,6 @@ void DataClockFn(){
 }
 
 /*
- * Function to copy full buffer
- * function may wait on the TX_RWLock?
- */
-void StoreTxBufferPtr_W(char* bufferPtr){
-
-	fullBufferPtr = bufferPtr;
-
-}
-
-/*
  *	Call StoreTxBufferPtr, to pass along the full buffer to pointer.
  */
 void TxData(){
@@ -149,16 +141,28 @@ void TxData(){
 
 		buffCount = 0;
 
-		// switch the bufferFlag
+		// switch the bufferFlag, prepend command, add null value, and CR/LF
 		switch(bufferFlag){
 
-		case 0: // switch to pingPong2
+		case 0: // switch to pingPong1
 				bufferFlag = true;
+				pingPong2[0] = 'E';
+				pingPong2[1] = 'R';
+				pingPong2[2] = ':';
+				pingPong2[44] = '\0';
+				pingPong2[45] = '\n';
+				pingPong2[46] = '\r';
 				StoreTxBufferPtr_W(pingPong2);
 				break;
 
 		case 1:
 				bufferFlag = false;
+				pingPong1[0] = 'E';
+				pingPong1[1] = 'R';
+				pingPong1[2] = ':';
+				pingPong1[44] = '\0';
+				pingPong1[45] = '\n';
+				pingPong1[46] = '\r';
 				StoreTxBufferPtr_W(pingPong1);
 				break;
 

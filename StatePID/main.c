@@ -48,9 +48,6 @@
 #include <string.h>
 
 
-
-
-
 void writeStringToUart1(char* str);
 void hard_initB();
 void ledToggle();
@@ -269,9 +266,9 @@ void hard_initB() {
 void writeStringToUart1(char* str)   //write a string to Uart0
 {
     int i;
-    for (i = 0; i < strlen(str); i++)
+    for (i = 0; i < strlen(str); i++){
         UARTCharPutNonBlocking(UART1_BASE,str[i]);
-        memset(comms,'\0',sizeof(comms));
+        memset(comms,'\0',sizeof(comms));}
 }
 
 void adc_init(){
