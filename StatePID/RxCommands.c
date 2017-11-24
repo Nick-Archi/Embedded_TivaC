@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <data.h>
 #include <drive.h>
 
@@ -43,8 +44,14 @@
 //------------------------------------------
 // Variables
 //------------------------------------------
-char* ptrV;
-char localCmdBuffer[42];
+int cmdLength;
+int state;
+static int count = 0;
+
+char* ptrC;
+char localCmdBufferCopy[43]; // 20 values (40 indices), 2 command values, 1 null value
+
+enum States {start, read, end}; // enum for state values
 
 //------------------------------------------
 // Functions
@@ -57,10 +64,65 @@ char localCmdBuffer[42];
  *	Meaning those characters/values are not stored in the localCmdBuffer.
  *	Inside the localCmdBuffer is just a null-terminated string of characters
  *	consisting of 2-character command followed optionally by argument characters.
+ *
+ *	Variables:
+ *	ptrC -> pointer used to copy the first address and use that to
+ *		move and reference characters
+ *	states -> used to move through state machine
+ *	localCmdBufferCopy -> array used to hold the copy chars and later to
+ *		return that address to localCmdBuffer
+ *
+ *
  */
-void ReadFrame(){ // non-interrupt
+void ReadFrame(char* localCmdBuffer){ // non-interrupt
 
+	switch(state){
 
+		case start:
+			ptrC = localCmdBuffer; // copy address of first value
+			state = read; // move to next state
+			break;
 
+		case read:
+
+			if(count < strlen(localCmdBuffer)){ // could maybe change this to look for '\0'
+
+				if(*ptrC != '\r' || *ptrC != '\n'
+						|| *ptrC != ':'){
+					localCmdBufferCopy[count] = *ptrC; // copy value
+					count++;
+					ptrC++;
+				}
+				else{
+					localCmdBufferCopy[count] = ' '; // erase the value?
+					count++;
+					ptrC++;
+				}
+
+			}
+			else{ // done reading...move to next state
+				state = end;
+			}
+
+			break;
+
+		case end:
+
+			localCmdBuffer = localCmdBufferCopy; // return from function?
+
+			break;
+
+		default:	// initialize state
+			count = 0;
+			state = start;
+	}
+
+} // end of ReadFrame non-interrupt
+
+void ReadFrame_i(char* localCmdBuffer){
+
+}
+
+void StoreReceivedCommand_W(char* localCmdBuffer){
 
 }
