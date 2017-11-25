@@ -181,7 +181,7 @@ void uart1int(void){
                 //TimerEnable(TIMER2_BASE, TIMER_BOTH);
                 //TimerEnable(TIMER2_BASE, TIMER_B);
                 //                    Timer_start(timer0);
-                //                    Timer_start(timer1);
+                Timer_start(timer1);
                 //PWMOutputState (PWM1_BASE, PWM_OUT_3_BIT | PWM_OUT_2_BIT, true);
                 Timer_start(timer0);
                 //Timer_start(timer1);
