@@ -77,7 +77,6 @@ float error;
 
 //----------Functions------------------//
 void ReadLightW();
-
 void PID_start()
     {
         while(1){
@@ -255,6 +254,9 @@ void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
             length = 0;
             setHigh = 0;
             lightStat = 0;
+            if (lightStat == 1) {
+                transmit = !transmit;
+            }
             //GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
             //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0b00001110);
         }
@@ -275,11 +277,11 @@ void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
     if (length > limit) { //stop motors if sensor continuously reads black
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001000);  //turn on green led to indicate this
         Timer_stop(timer0);
-        Timer_stop(timer1);
+        //Timer_stop(timer1);
         lightStat = 2;
         //if(lightStat != prevLightStat)
         //  UARTprintf("\nFully black line");
-        motorStop();
+        //motorStop();
         length = 0;
     }
     //UARTCharPutNonBlocking(UART1_BASE, itoc(length));
