@@ -48,15 +48,13 @@
 //------------------------------------------
 /*
  *	pingPong -> Array for holding right wall values
- *	distRt -> Distance value from right sensor
  *	bufferFlag -> flag to indicate which buffer to write to
  *	fullFlag -> flag to indicate when a buffer is full
- *	buffCount -> used to count to 20
+ *	buffCount -> used to count till 60
  *	rightWallErr -> used to receive the right wall error value
- *	fullBufferPtr -> global pointer used to hold full buffer value
  */
-char pingPong1[47];	// command value takes [0] & [1], Null takes [44], and colon is [2]
-char pingPong2[47];
+char pingPong1[63];	// array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
+char pingPong2[63]; // 2 chars, 20 * 2 chars, 11 chars, 1 char
 
 extern float error;
 extern char comms[200]; // milestone 9
@@ -102,16 +100,18 @@ void AcquireData(){
 		 * up two indices...
 		 */
 		if(bufferFlag){ // write to pingPong1
-			sprintf(&pingPong1[buffCount], "%x ", rightWallErr);
-			buffCount = buffCount + 2;
+			sprintf(&pingPong1[buffCount], "%x", rightWallErr);
+			pingPong1[buffCount + 2] = ' '; // add the space
+			buffCount = buffCount + 3;
 		}
 		else{
-			sprintf(&pingPong2[buffCount], "%x ", rightWallErr);
-			buffCount = buffCount + 2;
+			sprintf(&pingPong2[buffCount], "%x", rightWallErr);
+			pingPong2[buffCount + 2] = ' ';
+			buffCount = buffCount + 3;
 		}
 
 		// check if buffer is full
-		if(buffCount == 43){ // 20 * 2(values) + 3(offset)
+		if(buffCount <= 60){
 
 			// post TxDataSema
 			Semaphore_post(TxDataSema);
@@ -141,34 +141,22 @@ void TxData(){
 
 		buffCount = 0;
 
-		// switch the bufferFlag, prepend command, add null value, and CR/LF
+		// switch the bufferFlag, prepend command, add space too
 		switch(bufferFlag){
 
-		case 0: // switch to pingPong1
+		case 0: // since pingPong2 is full switch to using pingPong1
 				bufferFlag = true;
-				pingPong2[0] = 'E';
-				pingPong2[1] = 'R';
-//				pingPong2[2] = ':';
-				pingPong2[2] = ' '; // add spaces for detection in writeFrame
-				pingPong2[44] = '\0';	// end of data frame?
-//				pingPong2[45] = '\n';
-				pingPong2[45] = ' ';
-//				pingPong2[46] = '\r';
-				pingPong2[46] = ' ';
+				pingPong2[0] = 'e';
+				pingPong2[1] = 'r';
+				pingPong2[2] = ' ';
 				StoreTxBufferPtr_W(pingPong2);
 				break;
 
 		case 1:
 				bufferFlag = false;
-				pingPong1[0] = 'E';
-				pingPong1[1] = 'R';
-//				pingPong1[2] = ':';
-				pingPong1[2] = ' '; // add spaces for detection in writeFrame
-				pingPong1[44] = '\0';
-//				pingPong1[45] = '\n';
-				pingPong1[45] = ' ';
-//				pingPong1[46] = '\r';
-				pingPong1[46] = ' ';
+				pingPong1[0] = 'e';
+				pingPong1[1] = 'r';
+				pingPong1[2] = ' ';
 				StoreTxBufferPtr_W(pingPong1);
 				break;
 
