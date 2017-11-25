@@ -56,7 +56,6 @@
 
 void writeStringToUart1(char* str);
 void hard_initB();
-void ledToggle();
 void uart1int();
 void motorMove(unsigned long leftPower, unsigned long rightPower, int ,int);
 void motorStop();
@@ -95,16 +94,16 @@ int prevLightStat = 0;
 
 int main(void) {
 
-hard_initB();
-adc_init();
+    hard_initB();
+    adc_init();
 
-memset(comms,'\0',sizeof(comms));
-GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7, 0b10000000|0b01000000);
-//GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0b00001110);
-writeStringToUart1("Let's Talk: \n\r\t");
-//UARTStdioConfig(1, 115200, 16000000);
-//UARTprintf("yooooooooooo%d", 1);
-BIOS_start();
+    memset(comms,'\0',sizeof(comms));
+    GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7, 0b10000000|0b01000000);
+    //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0b00001110);
+    writeStringToUart1("Let's Talk: \n\r\t");
+    //UARTStdioConfig(1, 115200, 16000000);
+    //UARTprintf("yooooooooooo%d", 1);
+    BIOS_start();
 
 
 
@@ -118,7 +117,6 @@ void uart1int(void){
         char x =  UARTCharGetNonBlocking(UART1_BASE);
         if(x == 10 || x == 13){
             if(comms[count-2]=='L' && comms[count-1]=='o') {
-                ledToggle();
                 i16ToggleCount++;
             }
             if(comms[count-2]=='b' && comms[count-1]=='b') {
@@ -136,13 +134,13 @@ void uart1int(void){
                 kd=atof(adj);
             }
             if(comms[count-5]=='l' && comms[count-4]=='i') {
-                          char  adj[3];
-                          int i;
-                          for(i=2;i<count;i++){
-                              adj[i-2]=comms[i];
-                          }
-                          light=atof(adj);
-                      }
+                char  adj[3];
+                int i;
+                for(i=2;i<count;i++){
+                    adj[i-2]=comms[i];
+                }
+                light=atof(adj);
+            }
             if(comms[count-8]=='l' && comms[count-7]=='l') {
                 char  adj[6];
                 int i;
@@ -218,59 +216,59 @@ char itoc(int i){
 }
 
 void PID_start()
+{
+
+    float error = 0;
+    error = 1800 - distRight();
+    integral = integral + (error*.050);
+    if(integral<-1000)
+        integral=-500;
+    else if (integral>1000)
+        integral=500;
+    float derivative = (error-error_prior)/.050;
+    float distFrt=distFront();
+    float distRt=distRight();
+    float output = kp*error+kd*derivative+ki*integral;
+    error_prior=error;
+    if(distFrt>3000 && distRt>1000)
     {
-
-        float error = 0;
-        error = 1800 - distRight();
-        integral = integral + (error*.050);
-        if(integral<-1000)
-            integral=-500;
-        else if (integral>1000)
-            integral=500;
-        float derivative = (error-error_prior)/.050;
-        float distFrt=distFront();
-        float distRt=distRight();
-        float output = kp*error+kd*derivative+ki*integral;
-        error_prior=error;
-        if(distFrt>3000 && distRt>1000)
-                 {
-//            writeStringToUart1("UTURN");
-            int spin=0;
-            while(spin<1 && stopper)
-                      {
-                                float f = distFront();
-                                if((f<850))spin++;
-                                 motorMove(250,250,0,1);
-                      }
-            stopper=1;
-            error=0;
-            integral=0;
-
-                 }
-        else if(output>20 && output<500)
-            {
-                motorMove(225,125,0,0);
-               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
-            }
-        else if(output>500   )
-             {
-                 motorMove(250,50,0,0);}
-        else if(output<-20 && output>-1000 )
-            {
-                motorMove(125,225,0,0);
-               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
-            }
-        else if(output<-500  )
-            {
-                motorMove(50,250,0,0);}
-
-
-      else{motorMove(250,250,0,0);}
-//      if(kp == 0) {//remove later
-//        writeStringToUart1("p change");
-//      }
+        //            writeStringToUart1("UTURN");
+        int spin=0;
+        while(spin<1 && stopper)
+        {
+            float f = distFront();
+            if((f<850))spin++;
+            motorMove(250,250,0,1);
+        }
+        stopper=1;
+        error=0;
+        integral=0;
 
     }
+    else if(output>20 && output<500)
+    {
+        motorMove(225,125,0,0);
+        // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
+    }
+    else if(output>500   )
+    {
+        motorMove(250,50,0,0);}
+    else if(output<-20 && output>-1000 )
+    {
+        motorMove(125,225,0,0);
+        // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
+    }
+    else if(output<-500  )
+    {
+        motorMove(50,250,0,0);}
+
+
+    else{motorMove(250,250,0,0);}
+    //      if(kp == 0) {//remove later
+    //        writeStringToUart1("p change");
+    //      }
+
+}
 
 
 //void Uturn()
@@ -315,36 +313,36 @@ void motorStop(){
 //}
 
 float distRight(){
-        //Clear interrupt flag
-        ADCIntClear(ADC0_BASE, 3);
-        //Trigger ADC
-        ADCProcessorTrigger(ADC0_BASE, 3);
-        //wait for conversion
-        while(!ADCIntStatus(ADC0_BASE, 3, false)){}
-        //retrieve data
-        ADCSequenceDataGet(ADC0_BASE, 3, &result);
-//        char  str[20];
-//        snprintf(str,20,"Right: %u cm",result);
-//        writeStringToUart1(str);
-        return (float)result;
+    //Clear interrupt flag
+    ADCIntClear(ADC0_BASE, 3);
+    //Trigger ADC
+    ADCProcessorTrigger(ADC0_BASE, 3);
+    //wait for conversion
+    while(!ADCIntStatus(ADC0_BASE, 3, false)){}
+    //retrieve data
+    ADCSequenceDataGet(ADC0_BASE, 3, &result);
+    //        char  str[20];
+    //        snprintf(str,20,"Right: %u cm",result);
+    //        writeStringToUart1(str);
+    return (float)result;
 }
 
 float distFront(){
 
-          //Clear interrupt flag
-          ADCIntClear(ADC1_BASE, 3);
-          //Trigger ADC
-          ADCProcessorTrigger(ADC1_BASE, 3);
-          //wait for conversion
-          while(!ADCIntStatus(ADC1_BASE, 3, false)){}
-          //retrieve data
-          ADCSequenceDataGet(ADC1_BASE, 3, &result1);
+    //Clear interrupt flag
+    ADCIntClear(ADC1_BASE, 3);
+    //Trigger ADC
+    ADCProcessorTrigger(ADC1_BASE, 3);
+    //wait for conversion
+    while(!ADCIntStatus(ADC1_BASE, 3, false)){}
+    //retrieve data
+    ADCSequenceDataGet(ADC1_BASE, 3, &result1);
 
-//          char  str[20];
-//         snprintf(str,20,"Front: %u cm",result1);
-//          writeStringToUart1(str);
-         // result1= (2080*7)/(result1);
-          return (float)result1;
+    //          char  str[20];
+    //         snprintf(str,20,"Front: %u cm",result1);
+    //          writeStringToUart1(str);
+    // result1= (2080*7)/(result1);
+    return (float)result1;
 }
 
 
@@ -401,16 +399,16 @@ void hard_initB() {
     GPIOPinConfigure(GPIO_PC5_U1TX);
     //
     UARTConfigSetExpClk(UART1_BASE, SysCtlClockGet(), 115200,
-    (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
+            (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 
     UARTFIFOEnable(UART1_BASE);
     UARTEnable(UART1_BASE);
     UARTStdioConfig(1, 115200, SysCtlClockGet());
 
-       //MAKE SURE TO ENABLE IN THIS ORDER
-       IntEnable(INT_UART1);
-       UARTIntEnable(UART1_BASE, UART_INT_RT|UART_INT_RX);
-       IntMasterEnable();
+    //MAKE SURE TO ENABLE IN THIS ORDER
+    IntEnable(INT_UART1);
+    UARTIntEnable(UART1_BASE, UART_INT_RT|UART_INT_RX);
+    IntMasterEnable();
 }
 
 void writeStringToUart1(char* str)   //write a string to Uart0
@@ -438,16 +436,18 @@ void infraRed2() {
 
 }
 
+//----------------------InfraRed function ----------------------//
+//ligth status Info
+//lightStat 0: White surface
+//ligthStat 1: Small black line
+//lightStat 2: Thick black line
+
+
 void infraRed() { //infraRed interrupt triggers every 60 micro-seconds
     // first I set the pin to high
     if(set == 0) {
         //start = 0;
         GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-        //if (!start) //set GPIO pin to 0 the very first time
-        //    GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0);
-        //if(lightStat != prevLightStat)
-           // UARTprintf("\nWhite surface");
-        //lightStat = 3;
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_3,0b00000100);
         set = 1;    //assign 1 to set, so code doesn't set pin to high again unless on white surface
         //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
@@ -456,24 +456,24 @@ void infraRed() { //infraRed interrupt triggers every 60 micro-seconds
         GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_2); //set GPIO pin t input
     if((setHigh%3) == 0) {
         //if (start) {    //skip code the very first time
-            if(GPIOPinRead (GPIO_PORTF_BASE, GPIO_PIN_2) == 0) { //if black line is NOT read
-                set = 0;
-                length = 0;
-                setHigh = 0;
-                lightStat = 0;
-                //GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-                //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0b00001110);
-            }
-            else {  //if black is NOT read increase length
-                length++;
-                setHigh = 1;
-                GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-                GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
-                lightStat = 2;
-                //if(lightStat != prevLightStat)
-                   // UARTprintf("\nSemi black line");
-            }
-            //  }
+        if(GPIOPinRead (GPIO_PORTF_BASE, GPIO_PIN_2) == 0) { //if black line is NOT read
+            set = 0;
+            length = 0;
+            setHigh = 0;
+            lightStat = 0;
+            //GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
+            //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0b00001110);
+        }
+        else {  //if black is NOT read increase length
+            length++;
+            setHigh = 1;
+            GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
+            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
+            lightStat = 1;
+            //if(lightStat != prevLightStat)
+            // UARTprintf("\nSemi black line");
+        }
+        //  }
     }
     setHigh++;
 
@@ -482,9 +482,9 @@ void infraRed() { //infraRed interrupt triggers every 60 micro-seconds
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001000);  //turn on green led to indicate this
         Timer_stop(timer0);
         Timer_stop(timer1);
-        lightStat = 1;
+        lightStat = 2;
         //if(lightStat != prevLightStat)
-          //  UARTprintf("\nFully black line");
+        //  UARTprintf("\nFully black line");
         motorStop();
         length = 0;
     }
