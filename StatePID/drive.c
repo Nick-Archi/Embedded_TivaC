@@ -46,10 +46,10 @@
 
 
 
-//void motorMove(unsigned long leftPower, unsigned long rightPower, int ,int);
-//void motorStop();
-//float distFront();
-//float distRight();
+void motorMove(unsigned long leftPower, unsigned long rightPower, int ,int);
+void motorStop();
+float ReadFrontWall_US_W();
+float ReadWall_IR();
 
 
 float error_prior = 0;
@@ -62,35 +62,25 @@ uint32_t ui32ADC1Value[2] = {};
 uint32_t ui32ADC0Value[2] = {};
 uint32_t result=0;
 uint32_t result1=0;
-int prevLightStat = 0;
-int set = 0;
-int length = 0;
-int setHigh = 0;
-int lightStat = 0;
 int stopper=1;
 int pid_state=1;
 int spin =0;
 int max=150;
-float error;
-
-
-//----------Functions------------------//
-void ReadLightW();
-
+int lastPID=0;
 void PID_start()
     {
         while(1){
         Semaphore_pend(DriveSema, BIOS_WAIT_FOREVER);
         float error = 0;
-        error = 1800 - distRight();
+        error = 2000 - ReadWall_IR();
         integral = integral + (error*.050);
         if(integral<-1000)
             integral=-500;
         else if (integral>1000)
             integral=500;
         float derivative = (error-error_prior)/.050;
-        float distFrt=distFront();
-        float distRt=distRight();
+        float distFrt=ReadFrontWall_US_W();
+        float distRt=ReadWall_IR();
         float output = kp*error;//+kd*derivative+ki*integral;
         error_prior=error;
         if(output > max){
@@ -102,13 +92,12 @@ void PID_start()
         switch(pid_state){
         case 1: //follow 1
 
-
+        lastPID = 1;
         if(distFrt>3000 && distRt>1000)
                  {
             pid_state=3;//uturn
-
-                 }
-        else if(output > 0){
+         }
+        else if(output > 0 && output<100){
                 motorMove(100 + output,150,0,0);
             }
 
@@ -120,9 +109,18 @@ void PID_start()
 //                motorMove(200,100,0,0);
 //               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
 //            }
-//        else if(output>1000   )
-//             {
-//                 pid_state=2;}//motorMove(250,50,0,0);}
+        else if(output>100   )
+             {
+                 pid_state=2;
+        }
+        if(transmit==1){//crossline 1
+            pid_state=4;//follow 2
+            Timer_start(DataClockFn);
+        }
+        if(lightstat==2){
+            pid_state=5;//stop
+        }
+        //motorMove(250,50,0,0);}
 //        else if(output<-20 && output>-1000 )
 //            {
 //                motorMove(100,200,0,0);
@@ -138,22 +136,107 @@ void PID_start()
         break;
         case 2: //itersection
             motorMove(250,30,0,0);
-            pid_state=1;
+            pid_state=lastPID;
             break;
 
         case 3: //uturn
-                        spin=0;
+            spin=0;
                         while(spin<1 && stopper)
                                   {
-                                            float f = distFront();
+                                            float f = ReadFrontWall_US_W();
                                             if((f<850))spin++;
                                              motorMove(250,250,0,1);
                                   }
                         stopper=1;
                         error=0;
                         integral=0;
-                        pid_state = 1;
+                        pid_state = lastPID;
                         break;
+        case 4:         //follow 2
+            lastPID=4;
+            if(distFrt>3000 && distRt>1000)
+                             {
+                        pid_state=3;//uturn
+                     }
+                    else if(output > 0 && output<100){
+                            motorMove(100 + output,150,0,0);
+                        }
+
+                        else if(output < 0){
+                            motorMove(150, 100 + output * -1,0,0);
+                        }
+            //        else if(output>20 && output<1000)
+            //            {
+            //                motorMove(200,100,0,0);
+            //               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
+            //            }
+                    else if(output>100   )
+                         {
+                             pid_state=2;
+                    }
+                    if(!trasnmit){//crossline 1
+                        pid_state=6;//follow 3
+                        Timer_stop(DataClockFn);
+                    }
+                    if(lightstat==2){
+                        pid_state=5;//stop
+                    }
+                    //motorMove(250,50,0,0);}
+            //        else if(output<-20 && output>-1000 )
+            //            {
+            //                motorMove(100,200,0,0);
+            //               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
+            //            }
+            //        else if(output<-1000  )
+            //            {
+            //                motorMove(50,250,0,0);}
+            //      else
+            //          {
+            //          motorMove(250,250,0,0);
+            //          }
+                    break;
+        case 5: //stop
+            Timer_stop(DriveClock);
+                   break;
+        case 6: //follow3
+            lastPID = 6;
+            if(distFrt>3000 && distRt>1000)
+                            {
+                       pid_state=3;//uturn
+                    }
+                   else if(output > 0 && output<100){
+                           motorMove(100 + output,150,0,0);
+                       }
+
+                       else if(output < 0){
+                           motorMove(150, 100 + output * -1,0,0);
+                       }
+           //        else if(output>20 && output<1000)
+           //            {
+           //                motorMove(200,100,0,0);
+           //               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
+           //            }
+                   else if(output>100   )
+                        {
+                            pid_state=2;
+                   }
+                   if(lightstat==2){
+                       pid_state=5;//stop
+                   }
+                   //motorMove(250,50,0,0);}
+           //        else if(output<-20 && output>-1000 )
+           //            {
+           //                motorMove(100,200,0,0);
+           //               // GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
+           //            }
+           //        else if(output<-1000  )
+           //            {
+           //                motorMove(50,250,0,0);}
+           //      else
+           //          {
+           //          motorMove(250,250,0,0);
+           //          }
+                   break;
              }
 
              }
@@ -201,7 +284,7 @@ void motorStop(){
 //    Swi_post(PID_time);
 //}
 
-float distRight(){
+float ReadWall_IR(){
         //Clear interrupt flag
         ADCIntClear(ADC0_BASE, 3);
         //Trigger ADC
@@ -218,7 +301,7 @@ float distRight(){
         return (float)result;
 }
 
-float distFront(){
+float ReadFrontWall_US_W(){
 
           //Clear interrupt flag
           ADCIntClear(ADC1_BASE, 3);
@@ -234,59 +317,9 @@ float distFront(){
 //          writeStringToUart1(str);
          // result1= (2080*7)/(result1);
           return (float)result1;
-}
 
-void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
-    // first I set the pin to high
-    if(set == 0) {
-        //start = 0;
-        GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_3,0b00000100);
-        set = 1;    //assign 1 to set, so code doesn't set pin to high again unless on white surface
-        //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
-    }
-    if((setHigh%2) == 0)
-        GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_2); //set GPIO pin t input
-    if((setHigh%3) == 0) {
-        //if (start) {    //skip code the very first time
-        if(GPIOPinRead (GPIO_PORTF_BASE, GPIO_PIN_2) == 0) { //if black line is NOT read
-            set = 0;
-            length = 0;
-            setHigh = 0;
-            lightStat = 0;
-            //GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-            //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0b00001110);
-        }
-        else {  //if black is NOT read increase length
-            length++;
-            setHigh = 1;
-            GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
-            lightStat = 1;
-            //if(lightStat != prevLightStat)
-            // UARTprintf("\nSemi black line");
-        }
-        //  }
-    }
-    setHigh++;
 
-    //start = 1;  //set start to 1 so it never sets the GPIO to to low
-    if (length > limit) { //stop motors if sensor continuously reads black
-        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001000);  //turn on green led to indicate this
-        Timer_stop(timer0);
-        Timer_stop(timer1);
-        lightStat = 2;
-        //if(lightStat != prevLightStat)
-        //  UARTprintf("\nFully black line");
-        motorStop();
-        length = 0;
-    }
-    //UARTCharPutNonBlocking(UART1_BASE, itoc(length));
-    //memset(comms,'\0',sizeof(comms));
-    memset(comms,'\0',sizeof(comms));
-    prevLightStat = lightStat;
 
 }
-
 
 
