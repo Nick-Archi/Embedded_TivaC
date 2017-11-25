@@ -50,7 +50,6 @@
 
 void writeStringToUart1(char* str);
 void hard_initB();
-void ledToggle();
 void uart1int();
 void adc_init();
 void timerISR();
@@ -162,19 +161,6 @@ void uart1int(void){
         count++;
     }
 }
-
-
-void ledToggle(void)
-{
-    // LED values - 2=RED, 4=BLUE, 8=GREEN
-
-        if(i16ToggleCount%3==0)
-               GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
-        if(i16ToggleCount%3==1)
-               GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 4);
-        if(i16ToggleCount%3==2)
-               GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
-    }
 
 
 void DriveClockFunc(){
