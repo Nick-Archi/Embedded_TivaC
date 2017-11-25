@@ -86,11 +86,12 @@ int inCount = 0;
 int stopper=1;
 char comms[200];
 int light = 5;
-int limit = 0;
+int limit = 850;
 int start = 0;
 int setHigh = 1;
 int lightStat = 0;
 int prevLightStat = 0;
+int transmit  = 0;
 
 int main(void) {
 
@@ -457,7 +458,11 @@ void infraRed() { //infraRed interrupt triggers every 60 micro-seconds
             set = 0;
             length = 0;
             setHigh = 0;
-            lightStat = 0;
+
+            if (lightStat == 1) {   //ligth Sensor reads thin line
+                transmit = ~transmit;
+            }
+
             //GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
             //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0b00001110);
         }
