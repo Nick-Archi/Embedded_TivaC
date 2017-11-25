@@ -44,7 +44,10 @@
 //------------------------------------------
 // Variables
 //------------------------------------------
-char* fullBufferPtr;
+char* TXBufferPtr;
+char* ptrC;
+
+int flag;
 
 
 //------------------------------------------
@@ -58,16 +61,80 @@ char* fullBufferPtr;
  * state machine inserts colon, checksum, and CR/LF as it writes character
  * to UART
  */
+void TxResponse(){
 
+	while(true){
 
+		Semaphore_pend(TxResponseSema, BIOS_WAIT_FOREVER);
+
+	}
+
+}
 
 
 /*
  * Function to copy full buffer
  * function may wait on the TX_RWLock?
  */
-void StoreTxBufferPtr_W(char* bufferPtr){
+void StoreTxBufferPtr_W(char* fullBufferPtr){
 
-	fullBufferPtr = bufferPtr;
+	TXBufferPtr = fullBufferPtr;
+	Semaphore_post(TxResponseSema);
+
+
+}
+
+
+/*
+ * Contains state machine to parse through data and look for ' ' (spaces) in the
+ * 		data and insert the correct response
+ */
+void WriteFrame(char* bufferPointer){
+
+	switch(state){
+
+		case start:
+			ptrC = bufferPointer;
+			flag = 0;
+			state = move; // go to "move" state
+			break;
+
+		case s1:
+			if(flag == 1){
+
+			}
+			else if(flag == 2){
+
+			}
+			else if(flag == 3){
+
+			}
+
+			break;
+
+		case check:
+			if(*ptrC == ' '){	// detects space
+				flag++;
+				state = s1;
+			}
+			else{
+				state = print;
+			}
+			break;
+
+		case print:
+					// print to the UART here...
+			ptrC++;
+
+
+			break;
+
+		case stop:
+
+			break;
+
+		default:
+			state = start;
+	}
 
 }

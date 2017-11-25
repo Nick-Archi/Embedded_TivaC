@@ -46,7 +46,7 @@
 //------------------------------------------
 int cmdLength;
 int state;
-static int count = 0;
+static int count;
 
 char* ptrC;
 char localCmdBufferCopy[43]; // 20 values (40 indices), 2 command values, 1 null value
@@ -59,7 +59,7 @@ enum States {start, read, end}; // enum for state values
 
 
 /*
- *	Function to read in the frame via the UART. ReadFrame() strips the
+ *	ReadFrame() to read in the frame via the UART. ReadFrame() strips the
  *	leading colon, ending checksum, and CR/LF as they are read in and processed.
  *	Meaning those characters/values are not stored in the localCmdBuffer.
  *	Inside the localCmdBuffer is just a null-terminated string of characters
@@ -73,6 +73,7 @@ enum States {start, read, end}; // enum for state values
  *		return that address to localCmdBuffer
  *
  *
+ *	copy from the recent command interpreter
  */
 void ReadFrame(char* localCmdBuffer){ // non-interrupt
 
@@ -109,8 +110,7 @@ void ReadFrame(char* localCmdBuffer){ // non-interrupt
 		case end:
 
 			localCmdBuffer = localCmdBufferCopy; // return from function?
-
-			break;
+			return;
 
 		default:	// initialize state
 			count = 0;
@@ -119,10 +119,22 @@ void ReadFrame(char* localCmdBuffer){ // non-interrupt
 
 } // end of ReadFrame non-interrupt
 
+
+/*
+ *	ReadFrame_i()
+ */
 void ReadFrame_i(char* localCmdBuffer){
 
 }
 
+
+/*
+ *	StoreRecievedCommand_W(), gives new command buffer (localCmdBuffer)
+ *		to command interpreter task. This function may wait on the
+ *		CmdBuffer_RWLock
+ *
+ *	Posts NewCmdSema
+ */
 void StoreReceivedCommand_W(char* localCmdBuffer){
 
 }

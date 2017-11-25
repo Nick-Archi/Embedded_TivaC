@@ -148,10 +148,13 @@ void TxData(){
 				bufferFlag = true;
 				pingPong2[0] = 'E';
 				pingPong2[1] = 'R';
-				pingPong2[2] = ':';
-				pingPong2[44] = '\0';
-				pingPong2[45] = '\n';
-				pingPong2[46] = '\r';
+//				pingPong2[2] = ':';
+				pingPong2[2] = ' '; // add spaces for detection in writeFrame
+				pingPong2[44] = '\0';	// end of data frame?
+//				pingPong2[45] = '\n';
+				pingPong2[45] = ' ';
+//				pingPong2[46] = '\r';
+				pingPong2[46] = ' ';
 				StoreTxBufferPtr_W(pingPong2);
 				break;
 
@@ -159,10 +162,13 @@ void TxData(){
 				bufferFlag = false;
 				pingPong1[0] = 'E';
 				pingPong1[1] = 'R';
-				pingPong1[2] = ':';
+//				pingPong1[2] = ':';
+				pingPong1[2] = ' '; // add spaces for detection in writeFrame
 				pingPong1[44] = '\0';
-				pingPong1[45] = '\n';
-				pingPong1[46] = '\r';
+//				pingPong1[45] = '\n';
+				pingPong1[45] = ' ';
+//				pingPong1[46] = '\r';
+				pingPong1[46] = ' ';
 				StoreTxBufferPtr_W(pingPong1);
 				break;
 
