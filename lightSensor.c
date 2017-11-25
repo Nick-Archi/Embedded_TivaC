@@ -104,9 +104,6 @@ int main(void) {
     //UARTStdioConfig(1, 115200, 16000000);
     //UARTprintf("yooooooooooo%d", 1);
     BIOS_start();
-
-
-
 }
 
 void uart1int(void){
@@ -437,7 +434,7 @@ void infraRed2() {
 }
 
 //----------------------InfraRed function ----------------------//
-//ligth status Info
+//light status Info
 //lightStat 0: White surface
 //ligthStat 1: Small black line
 //lightStat 2: Thick black line
