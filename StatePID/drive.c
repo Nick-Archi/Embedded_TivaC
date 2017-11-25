@@ -62,11 +62,20 @@ uint32_t ui32ADC1Value[2] = {};
 uint32_t ui32ADC0Value[2] = {};
 uint32_t result=0;
 uint32_t result1=0;
+int prevLightStat = 0;
+int set = 0;
+int length = 0;
+int setHigh = 0;
+int lightStat = 0;
 int stopper=1;
 int pid_state=1;
 int spin =0;
 int max=150;
 float error;
+
+
+//----------Functions------------------//
+void ReadLightW();
 
 void PID_start()
     {
@@ -225,9 +234,59 @@ float distFront(){
 //          writeStringToUart1(str);
          // result1= (2080*7)/(result1);
           return (float)result1;
+}
 
+void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
+    // first I set the pin to high
+    if(set == 0) {
+        //start = 0;
+        GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
+        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_3,0b00000100);
+        set = 1;    //assign 1 to set, so code doesn't set pin to high again unless on white surface
+        //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
+    }
+    if((setHigh%2) == 0)
+        GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_2); //set GPIO pin t input
+    if((setHigh%3) == 0) {
+        //if (start) {    //skip code the very first time
+        if(GPIOPinRead (GPIO_PORTF_BASE, GPIO_PIN_2) == 0) { //if black line is NOT read
+            set = 0;
+            length = 0;
+            setHigh = 0;
+            lightStat = 0;
+            //GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
+            //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0b00001110);
+        }
+        else {  //if black is NOT read increase length
+            length++;
+            setHigh = 1;
+            GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
+            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
+            lightStat = 1;
+            //if(lightStat != prevLightStat)
+            // UARTprintf("\nSemi black line");
+        }
+        //  }
+    }
+    setHigh++;
 
+    //start = 1;  //set start to 1 so it never sets the GPIO to to low
+    if (length > limit) { //stop motors if sensor continuously reads black
+        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001000);  //turn on green led to indicate this
+        Timer_stop(timer0);
+        Timer_stop(timer1);
+        lightStat = 2;
+        //if(lightStat != prevLightStat)
+        //  UARTprintf("\nFully black line");
+        motorStop();
+        length = 0;
+    }
+    //UARTCharPutNonBlocking(UART1_BASE, itoc(length));
+    //memset(comms,'\0',sizeof(comms));
+    memset(comms,'\0',sizeof(comms));
+    prevLightStat = lightStat;
 
 }
+
 
 
