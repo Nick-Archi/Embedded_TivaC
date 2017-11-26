@@ -14,7 +14,7 @@
 #include <xdc/runtime/Log.h>                //needed for any Log_info() call
 #include <xdc/cfg/global.h>
 
-
+#include <main.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,7 +51,7 @@ void motorStop();
 float ReadFrontWall_US_W();
 float ReadWall_IR();
 
-
+extern int limit;
 float error_prior = 0;
 float integral = 0;
 int i=100;
@@ -127,9 +127,9 @@ void PID_start()
         }
         if(transmit==1){//crossline 1
             pid_state=4;//follow 2
-            Timer_start(DataClockFn);
+            Timer_start(DataClockFcn);
         }
-        if(lightstat==2){
+        if(lightStat==2){
             pid_state=5;//stop
         }
         //motorMove(250,50,0,0);}
@@ -147,11 +147,12 @@ void PID_start()
 //          }
         break;
         case 2: //itersection
-            motorMove(250,30,0,0);
+            motorMove(250,100,0,0);
             pid_state=lastPID;
             break;
 
         case 3: //uturn
+           // writeStringToUart1("uturn\n");
             spin=0;
                         while(spin<1 && stopper)
                                   {
@@ -186,11 +187,11 @@ void PID_start()
                          {
                              pid_state=2;
                     }
-                    if(!trasnmit){//crossline 1
+                    if(!transmit){//crossline 1
                         pid_state=6;//follow 3
-                        Timer_stop(DataClockFn);
+                        Timer_stop(DataClockFcn);
                     }
-                    if(lightstat==2){
+                    if(lightStat==2){
                         pid_state=5;//stop
                     }
                     //motorMove(250,50,0,0);}
@@ -209,6 +210,7 @@ void PID_start()
                     break;
         case 5: //stop
             Timer_stop(DriveClock);
+            motorStop();
                    break;
         case 6: //follow3
             lastPID = 6;
@@ -232,7 +234,7 @@ void PID_start()
                         {
                             pid_state=2;
                    }
-                   if(lightstat==2){
+                   if(lightStat==2){
                        pid_state=5;//stop
                    }
                    //motorMove(250,50,0,0);}
@@ -328,7 +330,7 @@ float ReadFrontWall_US_W(){
 //         snprintf(str,20,"Front: %u cm",result1);
 //          writeStringToUart1(str);
          // result1= (2080*7)/(result1);
-          return (float)result1;
+          return (float)result1;}
 
 
 void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
@@ -336,7 +338,7 @@ void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
     if(set == 0) {
         //start = 0;
         GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_1|GPIO_PIN_3,0b00000100);
+        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3,0b00000100);
         set = 1;    //assign 1 to set, so code doesn't set pin to high again unless on white surface
         //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0);
     }
@@ -381,11 +383,10 @@ void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
     }
     //UARTCharPutNonBlocking(UART1_BASE, itoc(length));
     //memset(comms,'\0',sizeof(comms));
-    memset(comms,'\0',sizeof(comms));
-    prevLightStat = lightStat;
+    //memset(comms,'\0',sizeof(comms));
+    //prevLightStat = lightStat;
 
 
 
 }
-
 

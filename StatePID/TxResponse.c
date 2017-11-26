@@ -24,7 +24,7 @@
 #include <data.h>
 #include <drive.h>
 #include <TxResponse.h>
-
+#include <main.h>
 #include "inc/hw_types.h"
 #include "inc/hw_memmap.h"
 #include "driverlib/sysctl.h"
@@ -65,11 +65,11 @@ enum states{start, move, space};
  */
 void TxResponse(){
 
-	while(true){
+    while(true){
 
-		Semaphore_pend(TxResponseSema, BIOS_WAIT_FOREVER);
+        Semaphore_pend(TxResponseSema, BIOS_WAIT_FOREVER);
 
-	}
+    }
 
 }
 
@@ -80,8 +80,8 @@ void TxResponse(){
  */
 void StoreTxBufferPtr_W(char* fullBufferPtr){
 
-	TXBufferPtr = fullBufferPtr;
-	Semaphore_post(TxResponseSema);
+    TXBufferPtr = fullBufferPtr;
+    Semaphore_post(TxResponseSema);
 
 
 }
@@ -89,51 +89,56 @@ void StoreTxBufferPtr_W(char* fullBufferPtr){
 
 /*
  * Contains state machine to parse through data and look for ' ' (spaces) in the
- * 		data and insert the correct response
+ *      data and insert the correct response
  */
 void WriteFrame(char* bufferPointer){
 
-	ptrC = bufferPointer;	// copy first address
-	state = 1;
+    ptrC = bufferPointer;   // copy first address
+    state = 1;
 
-	while(*ptrC != '\0'){
-		switch(state){
+    while(*ptrC != '\0'){
+        switch(state){
 
-			case start:
-				flag = 0;
-				state = move;
-				break;
+            case start:
+                flag = 0;
+                state = move;
+                break;
 
-			case move:
-				if(*ptrC == ' '){
-					state = space;
-					flag++;
-				}
-				else{
-					// print statement for char
-					ptrC++;
-				}
-				break;
+            case move:
+                if(*ptrC == ' '){
+                    state = space;
+                    flag++;
+                }
+                else{
+                    // print statement for char
+                    writeCharToUart1(*ptrC);
+                    ptrC++;
+                }
+                break;
 
-			case space:
-				if(flag == 1){
-					// print statement for colon
-				}
-				else{
-					// print statement for space
-				}
-				ptrC++;
+            case space:
+                if(flag == 1){
+                    // print statement for colon
+                    writeCharToUart1(':');
+                }
+                else{
+                    // print statement for space
+                    writeCharToUart1(' ');
+                }
+                ptrC++;
 
-				if(*ptrC == '\0'){
-					// print statement for CR\LF
-				}
-				state = move;
-				break;
+                if(*ptrC == '\0'){
+                    // print statement for CR\LF
+                    writeCharToUart1(10);
+                    writeCharToUart1(13);
+                }
+                state = move;
+                break;
 
-			default:
-				flag = 0;
-				state = move;
-		}
-	}
+            default:
+                flag = 0;
+                state = move;
+        }
+    }
 
 }

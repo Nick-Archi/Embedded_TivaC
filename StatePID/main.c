@@ -14,13 +14,11 @@
 #include <xdc/runtime/Log.h>                //needed for any Log_info() call
 #include <xdc/cfg/global.h>
 
+#include <drive.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <drive.h>
-#include <data.h>
-
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "inc/hw_gpio.h"
@@ -48,6 +46,9 @@
 #include <string.h>
 
 
+
+
+
 void writeStringToUart1(char* str);
 void hard_initB();
 void ledToggle();
@@ -59,7 +60,7 @@ void Uturn();
 volatile int16_t i16ToggleCount=0;
 char comms[200];
 int count = 0;
-
+int limit=835;
 int main(void) {
 
 hard_initB();
@@ -124,10 +125,10 @@ void uart1int(void){
                 ki=atof(adj);
             }
             if(comms[count-2]=='d' && comms[count-1]=='r') {
-                distRight();
+                ReadWall_IR();
             }
             if(comms[count-2]=='d' && comms[count-1]=='f') {
-                distFront();
+                ReadFrontWall_US_W();
             }
             if(comms[count-2]=='f' && comms[count-1]=='f') {
                 motorMove(200,200,0,0);
@@ -137,6 +138,14 @@ void uart1int(void){
                 //SysCtlPeripheralDisable(SYSCTL_PERIPH_TIMER2);
                 Timer_stop(DriveClock);
             }
+            if(comms[count-8]=='l' && comms[count-7]=='l') {
+                            char  adj[6];
+                            int i;
+                            for(i=2;i<count;i++){
+                                adj[i-2]=comms[i];
+                            }
+                            limit=atof(adj);
+            }
             if(comms[count-2]=='p' && comms[count-1]=='d') {
                 SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
                 //TimerEnable(TIMER2_BASE, TIMER_BOTH);
@@ -144,6 +153,7 @@ void uart1int(void){
                 //                    Timer_start(timer0);
                 //                    Timer_start(timer1);
                 Timer_start(DriveClock);
+                Timer_start(timer0);
             }
             if(comms[count-2]=='o' && comms[count-1]=='f')
                 GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0);
@@ -266,11 +276,16 @@ void hard_initB() {
 void writeStringToUart1(char* str)   //write a string to Uart0
 {
     int i;
-    for (i = 0; i < strlen(str); i++){
+    for (i = 0; i < strlen(str); i++)
         UARTCharPutNonBlocking(UART1_BASE,str[i]);
-        memset(comms,'\0',sizeof(comms));}
+        memset(comms,'\0',sizeof(comms));
 }
 
+void writeCharToUart1(char str)   //write a string to Uart0
+{
+        UARTCharPutNonBlocking(UART1_BASE,str);
+        memset(comms,'\0',sizeof(comms));
+}
 void adc_init(){
 
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
