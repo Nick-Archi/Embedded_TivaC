@@ -53,14 +53,14 @@
  *	buffCount -> used to count till 60
  *	rightWallErr -> used to receive the right wall error value
  */
-char pingPong1[63];	// array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
-char pingPong2[63]; // 2 chars, 20 * 2 chars, 11 chars, 1 char
+char pingPong1[64];	// array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
+char pingPong2[64]; // 2 chars, 20 * 2 chars, 11 chars, 1 char
 
 extern float error;
 extern char comms[200]; // milestone 9
 
 static int bufferFlag = true;
-static int buffCount = 3; // offset value so command takes [0] & [1]
+static int buffCount = 4; // offset value so command takes [0] & [1]
 
 int32_t rightWallErr;
 
@@ -111,7 +111,31 @@ void AcquireData(){
 		}
 
 		// check if buffer is full
-		if(buffCount <= 60){
+		if(buffCount <= 61){
+
+			buffCount = 4;	// reset the value
+
+			switch(bufferFlag){
+
+			case 0: // since pingPong2 is full switch to using pingPong1
+					bufferFlag = true;
+					pingPong2[0] = 'e';
+					pingPong2[1] = 'r';
+					pingPong2[2] = ' ';
+					pingPong2[3] = ' ';
+					break;
+
+			case 1:
+					bufferFlag = false;
+					pingPong1[0] = 'e';
+					pingPong1[1] = 'r';
+					pingPong1[2] = ' ';
+					pingPong1[3] = ' ';
+					break;
+
+			default:
+				bufferFlag = false;
+			}
 
 			// post TxDataSema
 			Semaphore_post(TxDataSema);
@@ -139,24 +163,14 @@ void TxData(){
 
 		Semaphore_pend(TxDataSema, BIOS_WAIT_FOREVER);
 
-		buffCount = 0;
-
 		// switch the bufferFlag, prepend command, add space too
-		switch(bufferFlag){
+		switch(~bufferFlag){
 
 		case 0: // since pingPong2 is full switch to using pingPong1
-				bufferFlag = true;
-				pingPong2[0] = 'e';
-				pingPong2[1] = 'r';
-				pingPong2[2] = ' ';
 				StoreTxBufferPtr_W(pingPong2);
 				break;
 
 		case 1:
-				bufferFlag = false;
-				pingPong1[0] = 'e';
-				pingPong1[1] = 'r';
-				pingPong1[2] = ' ';
 				StoreTxBufferPtr_W(pingPong1);
 				break;
 

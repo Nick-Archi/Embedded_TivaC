@@ -48,7 +48,9 @@ char* TXBufferPtr;
 char* ptrC;
 
 int flag;
+int state;
 
+enum states{start, move, space};
 
 //------------------------------------------
 // Functions
@@ -91,50 +93,47 @@ void StoreTxBufferPtr_W(char* fullBufferPtr){
  */
 void WriteFrame(char* bufferPointer){
 
-	switch(state){
+	ptrC = bufferPointer;	// copy first address
+	state = 1;
 
-		case start:
-			ptrC = bufferPointer;
-			flag = 0;
-			state = move; // go to "move" state
-			break;
+	while(*ptrC != '\0'){
+		switch(state){
 
-		case s1:
-			if(flag == 1){
+			case start:
+				flag = 0;
+				state = move;
+				break;
 
-			}
-			else if(flag == 2){
+			case move:
+				if(*ptrC == ' '){
+					state = space;
+					flag++;
+				}
+				else{
+					// print statement for char
+					ptrC++;
+				}
+				break;
 
-			}
-			else if(flag == 3){
+			case space:
+				if(flag == 1){
+					// print statement for colon
+				}
+				else{
+					// print statement for space
+				}
+				ptrC++;
 
-			}
+				if(*ptrC == '\0'){
+					// print statement for CR\LF
+				}
+				state = move;
+				break;
 
-			break;
-
-		case check:
-			if(*ptrC == ' '){	// detects space
-				flag++;
-				state = s1;
-			}
-			else{
-				state = print;
-			}
-			break;
-
-		case print:
-					// print to the UART here...
-			ptrC++;
-
-
-			break;
-
-		case stop:
-
-			break;
-
-		default:
-			state = start;
+			default:
+				flag = 0;
+				state = move;
+		}
 	}
 
 }

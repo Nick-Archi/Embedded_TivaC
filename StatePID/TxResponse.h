@@ -16,5 +16,6 @@
 // Functions
 //------------------------------------------
 
-
+void TxResponse();
 void StoreTxBufferPtr_W(char* bufferPtr);
+void WriteFrame(char* bufferPointer);
