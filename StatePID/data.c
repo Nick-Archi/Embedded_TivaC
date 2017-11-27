@@ -25,7 +25,7 @@
 #include <drive.h>
 #include <TxResponse.h>
 
-
+#include <main.h>
 #include "inc/hw_types.h"
 #include "inc/hw_memmap.h"
 #include "driverlib/sysctl.h"
@@ -53,15 +53,15 @@
  *  buffCount -> used to count till 60
  *  rightWallErr -> used to receive the right wall error value
  */
-char pingPong1[64]; // array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
-char pingPong2[64]; // 2 chars, 20 * 2 chars, 11 chars, 1 char
+char pingPong1[65];//= {'b','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','e','\0'}; // array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
+char pingPong2[65];//= {'a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','\0'};  // 2 chars, 20 * 2 chars, 11 chars, 1 char
 
 extern float error;
-extern char comms[200]; // milestone 9
 
-static int bufferFlag = true;
-static int buffCount = 4; // offset value so command takes [0] & [1]
 
+int bufferFlag = true;
+int buffCount = 4; // offset value so command takes [0] & [1]
+int counter = 1;
 int32_t rightWallErr;
 
 //------------------------------------------
@@ -78,7 +78,15 @@ void AcquireData(){
     while(true){
 
         Semaphore_pend(DataSema, BIOS_WAIT_FOREVER);
-
+//        int x = 0;writeCharToUart1('t');
+//        for(x=0;x<65;x++){ writeCharToUart1(pingPong1[x]);}writeCharToUart1('p');
+//            if(x>10)
+//                writeCharToUart1('f');
+//            if(x==60)writeCharToUart1('$');}
+//        if(counter%20==0)
+//        {WriteFrame(pingPong1);counter=0;}
+//        counter++;
+        //error=246;
         // get right wall value & convert to hex
         rightWallErr = (int32_t)error;
 
@@ -90,7 +98,12 @@ void AcquireData(){
         if(rightWallErr > MAX){
             rightWallErr = MAX; // cap the value at 255
         }
-
+        if(counter==1){writeCharToUart1('e');
+        writeCharToUart1('r');
+        writeCharToUart1(':');
+        writeCharToUart1(' ');
+        counter++;
+        }
 
         // check what buffer to use
         /*
@@ -100,59 +113,92 @@ void AcquireData(){
          * up two indices...
          */
         if(bufferFlag){ // write to pingPong1
-            sprintf(&pingPong1[buffCount], "%x", rightWallErr);
-            pingPong1[buffCount + 2] = ' '; // add the space
-            buffCount = buffCount + 3;
-        }
-        else{
-            sprintf(&pingPong2[buffCount], "%x", rightWallErr);
-            pingPong2[buffCount + 2] = ' ';
-            buffCount = buffCount + 3;
-        }
 
-        // check if buffer is full
-        if(buffCount <= 61){
+                    if(rightWallErr <= 15){
+                        sprintf(&pingPong1[buffCount], "%c", ' ');
+                        sprintf(&pingPong1[buffCount + 1], "%x", rightWallErr);
+                        pingPong1[buffCount + 2] = ' '; // add the space
+                        writeCharToUart1(pingPong1[buffCount]);
+                        writeCharToUart1(pingPong1[buffCount+1]);
+                        writeCharToUart1(pingPong1[buffCount + 2]);
+                    }
+                    else{
+                        sprintf(&pingPong1[buffCount], "%x", rightWallErr);
+                        pingPong1[buffCount + 2] = ' '; // add the space
+                        writeCharToUart1(pingPong1[buffCount]);
+                        writeCharToUart1(pingPong1[buffCount+1]);
+                        writeCharToUart1(pingPong1[buffCount + 2]);
+                    }
 
-            buffCount = 4;  // reset the value
+                    buffCount = buffCount + 3;
+                }
+                else{
 
-            switch(bufferFlag){
+                    if(rightWallErr <= 15){
+                        sprintf(&pingPong2[buffCount], "%c", ' ');
+                        sprintf(&pingPong2[buffCount + 1], "%x", rightWallErr);
+                        pingPong2[buffCount + 2] = ' '; // add the space
+                        writeCharToUart1(pingPong2[buffCount]);
+                        writeCharToUart1(pingPong2[buffCount+1]);
+                        writeCharToUart1(pingPong2[buffCount + 2]);
+                    }
+                    else{
+                        sprintf(&pingPong2[buffCount], "%x", rightWallErr);
+                        pingPong2[buffCount + 2] = ' '; // add the space
+                        writeCharToUart1(pingPong2[buffCount]);
+                        writeCharToUart1(pingPong2[buffCount+1]);
+                        writeCharToUart1(pingPong2[buffCount + 2]);
+                    }
 
-            case 0: // since pingPong2 is full switch to using pingPong1
-                    bufferFlag = true;
-                    pingPong2[0] = 'e';
-                    pingPong2[1] = 'r';
-                    pingPong2[2] = ' ';
-                    pingPong2[3] = ' ';
-                    break;
+                    buffCount = buffCount + 3;
+                }
 
-            case 1:
-                    bufferFlag = false;
-                    pingPong1[0] = 'e';
-                    pingPong1[1] = 'r';
-                    pingPong1[2] = ' ';
-                    pingPong1[3] = ' ';
-                    break;
+                // check if buffer is full
+                if(buffCount == 64){
 
-            default:
-                bufferFlag = false;
-            }
+                    buffCount = 4;  // reset the value
+                    writeCharToUart1('\n');
+                    writeCharToUart1('\r');
+                    writeCharToUart1('e');
+                    writeCharToUart1('r');
+                    writeCharToUart1(':');
+                    writeCharToUart1(' ');
+                    switch(bufferFlag){
 
-            // post TxDataSema
-            Semaphore_post(TxDataSema);
+                    case 0: // since pingPong2 is full switch to using pingPong1
+                            bufferFlag = true;
+                            pingPong2[0] = 'e';
+                            pingPong2[1] = 'r';
+                            pingPong2[2] = ' ';
+                            pingPong2[3] = ' ';
+                            pingPong2[64] = '\0';
+                            break;
 
-        }
+                    case 1:
+                            bufferFlag = false;
+                            pingPong1[0] = 'e';
+                            pingPong1[1] = 'r';
+                            pingPong1[2] = ' ';
+                            pingPong1[3] = ' ';
+                            pingPong2[64] = '\0';
+                            break;
+
+                    default:
+                        bufferFlag = false;
+                    }
+
+                    // post TxDataSema
+                   // Semaphore_post(TxDataSema);
+
+                }
     }
-}
 
+}
 
 /*
  * ISR called by Timer to post DataSem
  */
-void DataClockFn(){
 
-    Semaphore_post(DataSema);
-
-}
 
 /*
  *  Call StoreTxBufferPtr, to pass along the full buffer to pointer.
@@ -162,9 +208,8 @@ void TxData(){
     while(true){
 
         Semaphore_pend(TxDataSema, BIOS_WAIT_FOREVER);
-
         // switch the bufferFlag, prepend command, add space too
-        switch(~bufferFlag){
+        switch(!bufferFlag){
 
         case 0: // since pingPong2 is full switch to using pingPong1
                 StoreTxBufferPtr_W(pingPong2);

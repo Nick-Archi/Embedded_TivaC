@@ -14,6 +14,8 @@
 #include <xdc/runtime/Log.h>                //needed for any Log_info() call
 #include <xdc/cfg/global.h>
 
+#include <data.h>
+#include <TxResponse.h>
 #include <drive.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -45,10 +47,6 @@
 #include "driverlib/debug.h"
 #include <string.h>
 
-
-
-
-
 void writeStringToUart1(char* str);
 void hard_initB();
 void ledToggle();
@@ -56,11 +54,13 @@ void uart1int();
 void adc_init();
 void timerISR();
 void Uturn();
+//static char pingPong1[65]= {'b','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','e','\0'}; // array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
 
 volatile int16_t i16ToggleCount=0;
 char comms[200];
 int count = 0;
-int limit=835;
+int limit=2000;int x=0;
+
 int main(void) {
 
 hard_initB();
@@ -68,10 +68,9 @@ adc_init();
 memset(comms,'\0',sizeof(comms));
 GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7, 0b10000000|0b01000000);
 GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
-writeStringToUart1("Let's Talk: \n\r\t");
+//writeStringToUart1("Let's Talk: \n\r\t");
+//Timer_start(DataClockFcn);
 BIOS_start();
-
-
 
 }
 
@@ -83,7 +82,7 @@ void uart1int(void){
         char x =  UARTCharGetNonBlocking(UART1_BASE);
         if(x == 10 || x == 13){
             if(comms[count-2]=='L' && comms[count-1]=='o') {
-                ledToggle();
+                ledToggle();Timer_start(DataClockFcn);
                 i16ToggleCount++;
             }
             if(comms[count-2]=='b' && comms[count-1]=='b') {
@@ -174,6 +173,7 @@ void uart1int(void){
 }
 
 
+
 void ledToggle(void)
 {
     // LED values - 2=RED, 4=BLUE, 8=GREEN
@@ -190,7 +190,11 @@ void ledToggle(void)
 void DriveClockFunc(){
     Semaphore_post(DriveSema);
 }
+void DataClockFn(){
 
+    Semaphore_post(DataSema);
+
+}
 void hard_initB() {
     SysCtlClockSet(SYSCTL_SYSDIV_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
     //
@@ -284,7 +288,8 @@ void writeStringToUart1(char* str)   //write a string to Uart0
 void writeCharToUart1(char str)   //write a string to Uart0
 {
         UARTCharPutNonBlocking(UART1_BASE,str);
-        memset(comms,'\0',sizeof(comms));
+    //UARTprintf("%c",str);
+    memset(comms,'\0',sizeof(comms));
 }
 void adc_init(){
 

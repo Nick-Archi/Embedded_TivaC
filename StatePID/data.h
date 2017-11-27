@@ -14,5 +14,5 @@
 // Functions
 //------------------------------------------
 void AcquireData();
-void DataClockFn();
+//void DataClockFn();
 void TxData();

@@ -56,8 +56,8 @@ float error_prior = 0;
 float integral = 0;
 int i=100;
 float kp = .4;
-float ki = .0002;
-float kd = .0002;
+float ki = .4;
+float kd = .015;
 uint32_t ui32ADC1Value[2] = {};
 uint32_t ui32ADC0Value[2] = {};
 uint32_t result=0;
@@ -83,7 +83,6 @@ void PID_start()
     {
         while(1){
         Semaphore_pend(DriveSema, BIOS_WAIT_FOREVER);
-        float error = 0;
         error = 2000 - ReadWall_IR();
         integral = integral + (error*.050);
         if(integral<-1000)
@@ -93,7 +92,7 @@ void PID_start()
         float derivative = (error-error_prior)/.050;
         float distFrt=ReadFrontWall_US_W();
         float distRt=ReadWall_IR();
-        float output = kp*error;//+kd*derivative+ki*integral;
+        float output = kp*error+kd*derivative+ki*integral;
         error_prior=error;
         if(output > max){
                 output = max;
@@ -110,12 +109,13 @@ void PID_start()
             pid_state=3;//uturn
          }
         else if(output > 0 && output<100){
-                motorMove(100 + output,150,0,0);
-            }
+                       motorMove(100 + output,150,0,0);
+                   }
 
-            else if(output < 0){
-                motorMove(150, 100 + output * -1,0,0);
-            }
+
+        else if(output < 0){
+                       motorMove(150, 100 + output * -1,0,0);
+                   }
 //        else if(output>20 && output<1000)
 //            {
 //                motorMove(200,100,0,0);
@@ -128,6 +128,8 @@ void PID_start()
         if(transmit==1){//crossline 1
             pid_state=4;//follow 2
             Timer_start(DataClockFcn);
+            writeStringToUart1("first line\n");
+
         }
         if(lightStat==2){
             pid_state=5;//stop
@@ -187,9 +189,10 @@ void PID_start()
                          {
                              pid_state=2;
                     }
-                    if(!transmit){//crossline 1
+                    if(!transmit){//crossline 2
                         pid_state=6;//follow 3
                         Timer_stop(DataClockFcn);
+                        writeStringToUart1("\n\rsecond line\n\r");
                     }
                     if(lightStat==2){
                         pid_state=5;//stop
@@ -210,6 +213,7 @@ void PID_start()
                     break;
         case 5: //stop
             Timer_stop(DriveClock);
+            Timer_stop(DataClockFcn);
             motorStop();
                    break;
         case 6: //follow3
@@ -348,16 +352,21 @@ void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
         //if (start) {    //skip code the very first time
         if(GPIOPinRead (GPIO_PORTF_BASE, GPIO_PIN_2) == 0) { //if black line is NOT read
             set = 0;
+            if (length > 700 && lightStat == 1) {
+                //transmit = !transmit;
+                if (transmit  == 0)
+                        transmit = 1;
+                else
+                    transmit = 0;
+            }
             length = 0;
             setHigh = 0;
+
             lightStat = 0;
-            if (lightStat == 1) {
-                transmit = !transmit;
-            }
             //GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
             //GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2, 0b00001110);
         }
-        else {  //if black is NOT read increase length
+        else {  //if black is read increase length
             length++;
             setHigh = 1;
             GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
