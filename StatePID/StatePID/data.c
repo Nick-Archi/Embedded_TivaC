@@ -53,13 +53,14 @@
  *  buffCount -> used to count till 60
  *  rightWallErr -> used to receive the right wall error value
  */
-char pingPong1[65];//= {'b','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','e','\0'}; // array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
-char pingPong2[65];//= {'a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','\0'};  // 2 chars, 20 * 2 chars, 11 chars, 1 char
+char pingPong1[65]; // array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
+char pingPong2[65]; // 2 chars, 20 * 2 chars, 11 chars, 1 char
 
 extern float error;
 
 
 int bufferFlag = true;
+int firstTimeAround = true;
 int buffCount = 4; // offset value so command takes [0] & [1]
 int counter = 1;
 int32_t rightWallErr;
@@ -212,11 +213,11 @@ void TxData(){
         switch(!bufferFlag){
 
         case 0: // since pingPong2 is full switch to using pingPong1
-                StoreTxBufferPtr_W(pingPong2);
+        		StoreTxBufferPtr_W(pingPong2);
                 break;
 
         case 1:
-                StoreTxBufferPtr_W(pingPong1);
+        		StoreTxBufferPtr_W(pingPong1);
                 break;
 
         default:

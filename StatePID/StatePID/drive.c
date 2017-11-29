@@ -107,10 +107,10 @@ void PID_start()
             else if(output < (max * -1)){
                 output = -max;
             }
-        if(start && !(ccheck % 2)){DataClockFn();flag = true;}
-        if(flag){
-            ccheck++;
-        }
+//        if(start && !(ccheck % 2)){DataClockFn();flag = true;}
+//        if(flag){
+//            ccheck++;
+//        }
         switch(pid_state){
         case 1: //follow 1
 
@@ -138,7 +138,7 @@ void PID_start()
         }
         if(transmit==1){//crossline 1
             pid_state=4;//follow 2
-          // Timer_start(DataClockFcn);
+           Timer_start(DataClockFcn);
             start = 1;
             writeStringToUart1("first line\n");
 
@@ -203,7 +203,7 @@ void PID_start()
                     }
                     if(!transmit){//crossline 2
                         pid_state=6;//follow 3
-                      //  Timer_stop(DataClockFcn);
+                        Timer_stop(DataClockFcn);
                         start = 0;
                         writeStringToUart1("\n\rsecond line\n\r");
                     }

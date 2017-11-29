@@ -291,7 +291,7 @@ void writeStringToUart1(char* str)   //write a string to Uart0
 void writeCharToUart1(char str)   //write a string to Uart0
 {
         UARTCharPutNonBlocking(UART1_BASE,str);
-        SysCtlDelay(SysCtlClockGet()/3000);
+        SysCtlDelay(SysCtlClockGet()/30000);
     //UARTprintf("%c",str);
     memset(comms,'\0',sizeof(comms));
 }

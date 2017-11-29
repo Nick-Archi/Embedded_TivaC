@@ -69,6 +69,7 @@ void TxResponse(){
 
         Semaphore_pend(TxResponseSema, BIOS_WAIT_FOREVER);
         WriteFrame(TXBufferPtr);
+
     }
 
 }
@@ -80,9 +81,8 @@ void TxResponse(){
  */
 void StoreTxBufferPtr_W(char* fullBufferPtr){
 
-    TXBufferPtr = fullBufferPtr;
-    Semaphore_post(TxResponseSema);
-
+		TXBufferPtr = fullBufferPtr;
+		Semaphore_post(TxResponseSema);
 
 }
 
