@@ -43,7 +43,6 @@
 #include "driverlib/ssi.h"
 #include "driverlib/systick.h"
 #include "utils/uartstdio.h"
-//#include "utils/uartstdio.c"
 #include "driverlib/debug.h"
 #include <string.h>
 #include <main.h>
@@ -53,10 +52,10 @@ void hard_initB();
 void ledToggle();
 void uart1int();
 void adc_init();
-void timerISR();
-void Uturn();
-static char pingPong1[65]= {'b','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','a','e','\0'}; // array will hold 2 chars(command), 20 values, 11 spaces, + 1 null value
 
+//------------------------------------------
+// Variables
+//------------------------------------------
 volatile int16_t i16ToggleCount=0;
 char comms[200];
 int count = 0;
@@ -64,36 +63,46 @@ int limit=1700;int x=0;
 
 int main(void) {
 
-hard_initB();
-adc_init();
-memset(comms,'\0',sizeof(comms));
-GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7, 0b10000000|0b01000000);
-GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
-writeStringToUart1("Let's Talk: \n\r\t");
-//for(x=0;x<65;x++){writeStringToUart1("a");    SysCtlDelay(SysCtlClockGet()/300);}
-//Timer_start(DataClockFcn);
-BIOS_start();
+	hard_initB();
+	adc_init();
+
+	memset(comms,'\0',sizeof(comms));
+
+	GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7, 0b10000000|0b01000000);
+	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
+
+	writeStringToUart1("Let's Talk: \n\r\t");
+
+	BIOS_start();
 }
 
 
 
 void uart1int(void){
+
     uint32_t ui32Status;
+
     ui32Status = UARTIntStatus(UART1_BASE, true); //get interrupt status
+
     UARTIntClear(UART1_BASE, ui32Status);
+
     while(UARTCharsAvail(UART1_BASE) ) {
         char x =  UARTCharGetNonBlocking(UART1_BASE);
         if(x == 10 || x == 13){
+
             if(comms[count-2]=='L' && comms[count-1]=='o') {
                 ledToggle();Timer_start(DataClockFcn);
                 i16ToggleCount++;
             }
+
             if(comms[count-2]=='b' && comms[count-1]=='b') {
                 motorMove(200,200,1,1);
             }
+
             if(comms[count-2]=='s' && comms[count-1]=='t') {
                 stopper=0;
             }
+
             if(comms[count-5]=='a' && comms[count-4]=='d') {
                 char  adj[3];
                 int i;
@@ -102,14 +111,7 @@ void uart1int(void){
                 }
                 kd=atof(adj);
             }
-//            if(comms[count-5]=='l' && comms[count-4]=='i') {
-//                          char  adj[3];
-//                          int i;
-//                          for(i=2;i<count;i++){
-//                              adj[i-2]=comms[i];
-//                          }
-//                          light=atof(adj);
-//                      }
+
             if(comms[count-5]=='a' && comms[count-4]=='p') {
                 char  adj[3];
                 int i;
@@ -118,6 +120,7 @@ void uart1int(void){
                 }
                 kp=atof(adj);
             }
+
             if(comms[count-5]=='a' && comms[count-4]=='i') {
                 char  adj[3];
                 int i;
@@ -126,20 +129,24 @@ void uart1int(void){
                 }
                 ki=atof(adj);
             }
+
             if(comms[count-2]=='d' && comms[count-1]=='r') {
                 ReadWall_IR();
             }
+
             if(comms[count-2]=='d' && comms[count-1]=='f') {
                 ReadFrontWall_US_W();
             }
+
             if(comms[count-2]=='f' && comms[count-1]=='f') {
                 motorMove(200,200,0,0);
             }
+
             if(comms[count-2]=='s' && comms[count-1]=='s') {
                 motorStop();
-                //SysCtlPeripheralDisable(SYSCTL_PERIPH_TIMER2);
                 Timer_stop(DriveClock);
             }
+
             if(comms[count-8]=='l' && comms[count-7]=='l') {
                             char  adj[6];
                             int i;
@@ -148,77 +155,57 @@ void uart1int(void){
                             }
                             limit=atof(adj);
             }
+
             if(comms[count-2]=='p' && comms[count-1]=='d') {
                 SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
-                //TimerEnable(TIMER2_BASE, TIMER_BOTH);
-                //TimerEnable(TIMER2_BASE, TIMER_B);
-                //                    Timer_start(timer0);
-                //                    Timer_start(timer1);
                 Timer_start(DriveClock);
                 Timer_start(timer0);
             }
+
             if(comms[count-2]=='o' && comms[count-1]=='f')
                 GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0);
             UARTCharPutNonBlocking(UART1_BASE, '\n');
             UARTCharPutNonBlocking(UART1_BASE, '\r');
-            //writeStringToUart1("You just said");
-            //UARTCharPutNonBlocking(UART1_BASE, ' ');
-            //writeStringToUart1(comms);
             writeStringToUart1("\n\rLet's Talk: \n\r\t");
             count = 0;
             memset(comms,'\0',sizeof(comms));
             break;
         }
+
         UARTCharPutNonBlocking(UART1_BASE,x);
         comms[count] = x;
         count++;
     }
 }
 
-
-
-void ledToggle(void)
-{
+void ledToggle(void){
     // LED values - 2=RED, 4=BLUE, 8=GREEN
 
         if(i16ToggleCount%3==0)
                GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 2);
+
         if(i16ToggleCount%3==1)
                GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 4);
+
         if(i16ToggleCount%3==2)
                GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 8);
-    }
+
+	}
 
 
 void DriveClockFunc(){
     Semaphore_post(DriveSema);
 }
+
 void DataClockFn(){
-
     Semaphore_post(DataSema);
-
 }
+
+
 void hard_initB() {
     SysCtlClockSet(SYSCTL_SYSDIV_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
-    //
+
     // Enable Peripheral Clocks
-    //
-    //Set the clock
-   // SysCtlClockSet(SYSCTL_SYSDIV_1 | SYSCTL_USE_OSC |   SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
-
-       //This marks the beggining of timer int setup
-//    uint32_t ui32Period;
-//        // Timer 2 setup code
-//        SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);           // enable Timer 2 periph clks
-//        TimerConfigure(TIMER2_BASE, TIMER_CFG_PERIODIC);        // cfg Timer 2 mode - periodic
-//
-//        ui32Period = (SysCtlClockGet() /20);                     // period = CPU clk div 2 (500ms)
-//        TimerLoadSet(TIMER2_BASE, TIMER_A, ui32Period);         // set Timer 2 period
-//
-//        TimerIntEnable(TIMER2_BASE, TIMER_TIMA_TIMEOUT);        // enables Timer 2 to interrupt CPU
-
-        //TimerEnable(TIMER2_BASE, TIMER_A);                      // enable Timer 2
-       //This marks the end of timer int setup
 
     //Configure PWM Clock to match system
     SysCtlPWMClockSet(SYSCTL_PWMDIV_1);
@@ -227,19 +214,17 @@ void hard_initB() {
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
-    //SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM1); //enable PWM module 1
     GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3); //Enable GPIO output
     GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7); //Enable GPIO pins PB6 and PB7
+
     //enable PWM pins PE4 and PE5
     GPIOPinTypePWM(GPIO_PORTA_BASE, GPIO_PIN_6 | GPIO_PIN_7);
 
     //Configure PWM pins PE4 and PE5
     GPIOPinConfigure(GPIO_PA6_M1PWM2);
     GPIOPinConfigure(GPIO_PA7_M1PWM3);
-
-
 
     //Configure PWM Options
     //PWM_GEN_1 Covers M1PWM2 and M1PWM3
@@ -292,9 +277,10 @@ void writeCharToUart1(char str)   //write a string to Uart0
 {
         UARTCharPutNonBlocking(UART1_BASE,str);
         SysCtlDelay(SysCtlClockGet()/30000);
-    //UARTprintf("%c",str);
-    memset(comms,'\0',sizeof(comms));
+        memset(comms,'\0',sizeof(comms));
 }
+
+
 void adc_init(){
 
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);

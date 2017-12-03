@@ -79,15 +79,7 @@ void AcquireData(){
     while(true){
 
         Semaphore_pend(DataSema, BIOS_WAIT_FOREVER);
-//        int x = 0;writeCharToUart1('t');
-//        for(x=0;x<65;x++){ writeCharToUart1(pingPong1[x]);}writeCharToUart1('p');
-//            if(x>10)
-//                writeCharToUart1('f');
-//            if(x==60)writeCharToUart1('$');}
-//        if(counter%20==0)
-//        {WriteFrame(pingPong1);counter=0;}
-//        counter++;
-        //error=246;
+
         // get right wall value & convert to hex
         rightWallErr = (int32_t)error;
 
@@ -99,12 +91,6 @@ void AcquireData(){
         if(rightWallErr > MAX){
             rightWallErr = MAX; // cap the value at 255
         }
-//        if(counter==1){writeCharToUart1('e');
-//        writeCharToUart1('r');
-//        writeCharToUart1(':');
-//        writeCharToUart1(' ');
-//        counter++;
- //       }
 
         // check what buffer to use
         /*
@@ -119,16 +105,10 @@ void AcquireData(){
                         sprintf(&pingPong1[buffCount], "%c", ' ');
                         sprintf(&pingPong1[buffCount + 1], "%x", rightWallErr);
                         pingPong1[buffCount + 2] = ' '; // add the space
-//                        writeCharToUart1(pingPong1[buffCount]);
-//                        writeCharToUart1(pingPong1[buffCount+1]);
-//                        writeCharToUart1(pingPong1[buffCount + 2]);
                     }
                     else{
                         sprintf(&pingPong1[buffCount], "%x", rightWallErr);
                         pingPong1[buffCount + 2] = ' '; // add the space
-//                        writeCharToUart1(pingPong1[buffCount]);
-//                        writeCharToUart1(pingPong1[buffCount+1]);
-//                        writeCharToUart1(pingPong1[buffCount + 2]);
                     }
 
                     buffCount = buffCount + 3;
@@ -139,16 +119,10 @@ void AcquireData(){
                         sprintf(&pingPong2[buffCount], "%c", ' ');
                         sprintf(&pingPong2[buffCount + 1], "%x", rightWallErr);
                         pingPong2[buffCount + 2] = ' '; // add the space
-//                        writeCharToUart1(pingPong2[buffCount]);
-//                        writeCharToUart1(pingPong2[buffCount+1]);
-//                        writeCharToUart1(pingPong2[buffCount + 2]);
                     }
                     else{
                         sprintf(&pingPong2[buffCount], "%x", rightWallErr);
                         pingPong2[buffCount + 2] = ' '; // add the space
-//                        writeCharToUart1(pingPong2[buffCount]);
-//                        writeCharToUart1(pingPong2[buffCount+1]);
-//                        writeCharToUart1(pingPong2[buffCount + 2]);
                     }
 
                     buffCount = buffCount + 3;
@@ -158,12 +132,7 @@ void AcquireData(){
                 if(buffCount == 64){
 
                     buffCount = 4;  // reset the value
-//                    writeCharToUart1('\n');
-//                    writeCharToUart1('\r');
-//                    writeCharToUart1('e');
-//                    writeCharToUart1('r');
-//                    writeCharToUart1(':');
-//                    writeCharToUart1(' ');
+
                     switch(bufferFlag){
 
                     case 0: // since pingPong2 is full switch to using pingPong1
