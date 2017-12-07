@@ -2,7 +2,7 @@
  * main.c
  *
  *  Created on: Nov 1, 2017
- *      Author: Aurash
+ *      Author: Aurash Norouzi, Rhema Ike, Nicholas Archibong
  */
 
 
@@ -47,137 +47,245 @@
 #include <string.h>
 #include <main.h>
 
-void writeStringToUart1(char* str);
-void hard_initB();
-void ledToggle();
-void uart1int();
-void adc_init();
+
+//------------------------------------------
+// Method Prototypes
+//------------------------------------------
+void writeStringToUart1(char* str); //print to UART
+void hard_initB(); //init hardware
+void ledToggle();  //toggle led used in debugging
+void uart1int();   //uart interrupt function 
+void adc_init();   //initiralize the ADC
 
 //------------------------------------------
 // Variables
 //------------------------------------------
-volatile int16_t i16ToggleCount=0;
-char comms[200];
-int count = 0;
-int limit=1700;int x=0;
-
-int main(void) {
-
-	hard_initB();
-	adc_init();
-
-	memset(comms,'\0',sizeof(comms));
-
-	GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7, 0b10000000|0b01000000);
-	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
-
-	writeStringToUart1("Let's Talk: \n\r\t");
-
-	BIOS_start();
-}
+volatile int16_t i16ToggleCount=0;  //toggle variable for LED
+char comms[200];        //buffer for command interpreter (globalCommandBuffer)
+int count = 0;          //command int. control variable
+int limit=1700;         //light sensor limit variable
+int x=0;
 
 
 
-void uart1int(void){
+int main(void) 
+    {
 
+            //initialize hardware GPIO, PWM, and UART interrupt
+        	hard_initB();
+
+            //initialize the ADC parameters
+        	adc_init();
+
+            //clear the global command buffer
+        	memset(comms,'\0',sizeof(comms));
+
+            //set LED to color to WHITE before PID begins
+        	GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6|GPIO_PIN_7, 0b10000000|0b01000000);
+        	GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
+
+            //prompt user that communication can begin
+        	writeStringToUart1("Let's Talk: \n\r\t");
+
+            //important for all RTOS functions to begin
+        	BIOS_start();
+
+    }
+
+
+
+void uart1int(void)
+    {
+
+    //UART status variable
     uint32_t ui32Status;
 
+    //access the status of the UART interrupt
     ui32Status = UARTIntStatus(UART1_BASE, true); //get interrupt status
 
+    //clear the interrupt at the UART
     UARTIntClear(UART1_BASE, ui32Status);
 
-    while(UARTCharsAvail(UART1_BASE) ) {
-        char x =  UARTCharGetNonBlocking(UART1_BASE);
-        if(x == 10 || x == 13){
+    
+    //This is the  "Command Interpreter" and "UART interrupt" all in one 
+    //if characters were entered by user and UART recieved
+    while(UARTCharsAvail(UART1_BASE) ) 
 
-            if(comms[count-2]=='L' && comms[count-1]=='o') {
-                ledToggle();Timer_start(DataClockFcn);
-                i16ToggleCount++;
-            }
+        {
 
-            if(comms[count-2]=='b' && comms[count-1]=='b') {
-                motorMove(200,200,1,1);
-            }
+            //access the character entered into the UART
+            char x =  UARTCharGetNonBlocking(UART1_BASE);
 
-            if(comms[count-2]=='s' && comms[count-1]=='t') {
-                stopper=0;
-            }
+            //make sure the character is not a carriage return or line feed
+            //if CR LF detected begin Command Interpreting
+            if(x == 10 || x == 13)
 
-            if(comms[count-5]=='a' && comms[count-4]=='d') {
-                char  adj[3];
-                int i;
-                for(i=2;i<count;i++){
-                    adj[i-2]=comms[i];
-                }
-                kd=atof(adj);
-            }
+                {
+                    //toggle the LED color (this was a proof of concept)
+                    if(comms[count-2]=='L' && comms[count-1]=='o') 
+                        {
+                            //toggle LED color
+                            ledToggle(); 
+                            //change the count for color change
+                            i16ToggleCount++;
+                        }
 
-            if(comms[count-5]=='a' && comms[count-4]=='p') {
-                char  adj[3];
-                int i;
-                for(i=2;i<count;i++){
-                    adj[i-2]=comms[i];
-                }
-                kp=atof(adj);
-            }
+                    //move the robot backwards (proof of concept)
+                    if(comms[count-2]=='b' && comms[count-1]=='b')
+                        {
+                            //reverse both motors and apply 200 power
+                            motorMove(200,200,1,1);
+                        }
+                    
+                    //move the robot forwards (proof of concept)
+                    if(comms[count-2]=='f' && comms[count-1]=='f') 
+                        {
+                            //apply 200 power in forward direction
+                            motorMove(200,200,0,0);
+                        }
 
-            if(comms[count-5]=='a' && comms[count-4]=='i') {
-                char  adj[3];
-                int i;
-                for(i=2;i<count;i++){
-                    adj[i-2]=comms[i];
-                }
-                ki=atof(adj);
-            }
 
-            if(comms[count-2]=='d' && comms[count-1]=='r') {
-                ReadWall_IR();
-            }
+                    //Used to stop spinouts manually this is deprecated    
+                    if(comms[count-2]=='s' && comms[count-1]=='t')
+                        {
+                            stopper=0;
+                        }
 
-            if(comms[count-2]=='d' && comms[count-1]=='f') {
-                ReadFrontWall_US_W();
-            }
-
-            if(comms[count-2]=='f' && comms[count-1]=='f') {
-                motorMove(200,200,0,0);
-            }
-
-            if(comms[count-2]=='s' && comms[count-1]=='s') {
-                motorStop();
-                Timer_stop(DriveClock);
-            }
-
-            if(comms[count-8]=='l' && comms[count-7]=='l') {
+                    //Used to tune the kd PID constant value "on the fly"
+                    //ad denotes following char are a float value
+                    if(comms[count-8]=='a' && comms[count-7]=='d') 
+                        {
+                            //create 6 character adjust buffer
                             char  adj[6];
+
+                            //loop thru the characters for adjust buffer
                             int i;
-                            for(i=2;i<count;i++){
-                                adj[i-2]=comms[i];
-                            }
-                            limit=atof(adj);
-            }
+                            for(i=2;i<count;i++)
+                                {
+                                    adj[i-2]=comms[i];
+                                }
 
-            if(comms[count-2]=='p' && comms[count-1]=='d') {
-                SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
-                Timer_start(DriveClock);
-                Timer_start(timer0);
-            }
+                            //convert the characters to float    
+                            kd=atof(adj);
+                        }
 
-            if(comms[count-2]=='o' && comms[count-1]=='f')
-                GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0);
-            UARTCharPutNonBlocking(UART1_BASE, '\n');
-            UARTCharPutNonBlocking(UART1_BASE, '\r');
-            writeStringToUart1("\n\rLet's Talk: \n\r\t");
-            count = 0;
-            memset(comms,'\0',sizeof(comms));
-            break;
+                    //Used to tune the kp PID constant value "on the fly"
+                    //ad denotes following char are a float value
+                    if(comms[count-8]=='a' && comms[count-7]=='p')
+                        {
+                            //create 6 character adjust buffer
+                            char  adj[6];
+
+                            //loop thru the characters for adjust buffer
+                            int i;
+                            for(i=2;i<count;i++)
+                                {
+                                    adj[i-2]=comms[i];
+                                }
+
+                            //convert the characters to float        
+                            kp=atof(adj);
+                        }
+                
+                    //Used to tune the ki PID constant value "on the fly"
+                    //ad denotes following char are a float value
+                    if(comms[count-8]=='a' && comms[count-7]=='i') 
+                        {
+                        
+                            //create 6 character adjust buffer
+                            char  adj[6];
+
+                            //loop thru the characters for adjust buffer
+                            int i;
+                            for(i=2;i<count;i++)
+                                {
+                                    adj[i-2]=comms[i];
+                                }
+
+                            //convert the characters to float        
+                            ki=atof(adj);
+                        }
+
+                    //Used to trigger right distance conversion (deprecated)
+                    if(comms[count-2]=='d' && comms[count-1]=='r') 
+                        {
+                            ReadWall_IR(); //read the right wall value
+                        }
+
+                    //Used to trigger front distance conversion (deprecated)
+                    if(comms[count-2]=='d' && comms[count-1]=='f') 
+                        {
+                            ReadFrontWall_US_W(); //read the front wall value
+                        }
+
+                    //command to stop the DriveSema function and stop motors
+                    if(comms[count-2]=='s' && comms[count-1]=='s') 
+                        {
+                            //stop the motors 
+                            motorStop();
+                            //stop the timer used for 50ms DriveSema
+                            Timer_stop(DriveClock);
+                        }
+
+                    //command to set the light sensor limit variable
+                    if(comms[count-8]=='l' && comms[count-7]=='l')
+                    {
+                                //create 6 character adjust buffer
+                                char  adj[6];
+                                
+                                //loop thru the characters for adjust buffer
+                                int i;
+                                for(i=2;i<count;i++)
+                                    {
+                                        adj[i-2]=comms[i];
+                                    }
+                                //convert the characters to a float
+                                limit=atof(adj);
+                    }
+
+                    //command to start the PID_start function
+                    if(comms[count-2]=='p' && comms[count-1]=='d') 
+                        {
+                            //turn on the timer for the DriveClock
+                            SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER2);
+
+                            //start the timer for the DriveClock
+                            Timer_start(DriveClock);
+
+                            //start the timer for the light sensor
+                            Timer_start(timer0);
+                        }
+
+                    //turn off the LED on the TIVA c board
+                    if(comms[count-2]=='o' && comms[count-1]=='f')
+                        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0);
+                    
+                    //put a CR LF on to the UART
+                    UARTCharPutNonBlocking(UART1_BASE, '\n');
+                    UARTCharPutNonBlocking(UART1_BASE, '\r');
+                    
+                    //prompt the user again that they can communicate
+                    writeStringToUart1("\n\rLet's Talk: \n\r\t");
+                    
+                    //reset communication buffer control index
+                    count = 0;
+
+                    //clear the command buffer to avoid memory issues
+                    memset(comms,'\0',sizeof(comms));
+
+                    break;
         }
 
-        UARTCharPutNonBlocking(UART1_BASE,x);
-        comms[count] = x;
-        count++;
+            //if there was not CR LF put the character on the UART
+            UARTCharPutNonBlocking(UART1_BASE,x);
+            //add the characted to the communication buffer
+            comms[count] = x;
+            //increase the command buffer index control variable
+            count++;
     }
 }
 
+//toggle the LED based on toggleCount variable
 void ledToggle(void){
     // LED values - 2=RED, 4=BLUE, 8=GREEN
 
@@ -192,17 +300,24 @@ void ledToggle(void){
 
 	}
 
+// ISR that is called by the RTOS timer to post Semaphore for PID_start
+void DriveClockFunc()
+    {
+        //post the drive semaphore
+        Semaphore_post(DriveSema);
+    }
 
-void DriveClockFunc(){
-    Semaphore_post(DriveSema);
-}
+// ISR that is called by the RTOS timer to post Semaphore for AcquireData
+void DataClockFn()
+    {
+        //post the data semaphore
+        Semaphore_post(DataSema);
+    }
 
-void DataClockFn(){
-    Semaphore_post(DataSema);
-}
 
-
-void hard_initB() {
+void hard_initB() 
+{
+    //set the clock to 40MHZ
     SysCtlClockSet(SYSCTL_SYSDIV_5 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN | SYSCTL_XTAL_16MHZ);
 
     // Enable Peripheral Clocks
@@ -210,6 +325,7 @@ void hard_initB() {
     //Configure PWM Clock to match system
     SysCtlPWMClockSet(SYSCTL_PWMDIV_1);
 
+    //enable GPIO modules and peripherals
     SysCtlPeripheralEnable(SYSCTL_PERIPH_UART1);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
@@ -246,7 +362,6 @@ void hard_initB() {
     PWMOutputState (PWM1_BASE, PWM_OUT_3_BIT | PWM_OUT_2_BIT, false);
 
     // Enable port PC4 for UART1 U1RX
-    //
     GPIOPinTypeUART(GPIO_PORTC_BASE, GPIO_PIN_4);
     GPIOPinConfigure(GPIO_PC4_U1RX);
 
@@ -259,7 +374,7 @@ void hard_initB() {
     UARTConfigSetExpClk(UART1_BASE, SysCtlClockGet(), 115200,
     (UART_CONFIG_WLEN_8 | UART_CONFIG_STOP_ONE | UART_CONFIG_PAR_NONE));
 
-       //MAKE SUR TO ENABLE IN THIS ORDER
+       //MAKE SURE TO ENABLE IN THIS ORDER
        IntEnable(INT_UART1);
        UARTIntEnable(UART1_BASE, UART_INT_RT|UART_INT_RX);
        IntMasterEnable();
@@ -269,19 +384,25 @@ void writeStringToUart1(char* str)   //write a string to Uart0
 {
     int i;
     for (i = 0; i < strlen(str); i++)
-        UARTCharPutNonBlocking(UART1_BASE,str[i]);
+        //place the string onto the UART char by char
+        UARTCharPutNonBlocking(UART1_BASE,str[i]); 
+        //reset the comms buffer to avoid memory issues
         memset(comms,'\0',sizeof(comms));
 }
 
-void writeCharToUart1(char str)   //write a string to Uart0
-{
-        UARTCharPutNonBlocking(UART1_BASE,str);
+void writeCharToUart1(char ch)   //write a string to Uart0
+{       
+        //place a characters onto the UART buffer
+        UARTCharPutNonBlocking(UART1_BASE,ch);
+        //place delay to make sure all chars are printed
         SysCtlDelay(SysCtlClockGet()/30000);
+        //reset the comms buffer to avoid memory issues
         memset(comms,'\0',sizeof(comms));
 }
 
 
-void adc_init(){
+void adc_init() //initialize the ADC
+{
 
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOE);
     //enable ADC0

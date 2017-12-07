@@ -1,8 +1,8 @@
 /*
- * main.c
+ * CmdInt.c
  *
  *  Created on: Nov 1, 2017
- *      Author: Aurash
+ *      Author: Aurash Norouzi, Rhema Ike, Nicholas Archibong
  */
 
 
@@ -49,7 +49,7 @@
 #define true 1
 #define false 0
 
-
+//method prototypes
 void motorMove(unsigned long leftPower, unsigned long rightPower, int ,int);
 void motorStop();
 float ReadFrontWall_US_W();
@@ -58,27 +58,29 @@ void ReadLightW();
 
 
 //------------------------------------------
-// Variables
+// Drive Variables
 //------------------------------------------
-int lastPID=0;
-int start = 0;
-int spin =0;
-int max=150;
-int stopper=1;
-int pid_state=1;
+int lastPID=0; //control of last PID case value
+int start = 0; //used for debugging
+int spin =0;   //used for UTURN control
+int max=150;    // max motor power value
+int stopper=1;  //UTURN control variable
+int pid_state=1; //initial PID case to start at
 
 
 //------------------------------------------
 // PID Variables
 //------------------------------------------
-float kp = 1.1;
-float ki = 0.25;
-float kd = .015;
-float error_prior = 0;
-float integral = 0;
-float error;
-uint32_t result=0;
-uint32_t result1=0;
+
+//note the PID constants were found with Zieger Nichols Oscillation method
+float kp = 1.1; //proportional gain constant
+float ki = 0.25; //integral constant
+float kd = .015; //derivative constant
+float error_prior = 0; //last error value 
+float integral = 0; //intregral term total
+float error;       //error to be minimized
+uint32_t result=0;  //right sensor result
+uint32_t result1=0; //left sensor result
 
 
 //------------------------------------------
@@ -99,237 +101,405 @@ int ccheck = 0;
 void PID_start()
     {
         while(1){
+        // wait (forever) for the DriveSema to be posted
         Semaphore_pend(DriveSema, BIOS_WAIT_FOREVER);
 
+        //minimize the error to a raw sensor value of 1800
         error = 1800 - ReadWall_IR();
+
+        //compute the integral term for PID use with .05 mos 50ms
         integral = integral + (error * .050);
 
+        // very important to account for reset windup
         if(integral<-1000)
-            integral=-500;
-
+            integral=-500;  //cap at -500
         else if (integral>1000)
-            integral=500;
+            integral=500;  //cap at +500
 
+        //calculate the derivative term for PID control with 50ms
         float derivative = (error-error_prior)/.050;
+
+        //declare front wall error variable
         float distFrt=ReadFrontWall_US_W();
+        
+        //declare variable for right wall error
         float distRt=ReadWall_IR();
+
+        //PID final calculation with PID
+        //Note PID was tuned with Zieger Nichols Oscillation Method
         float output = kp*error+kd*derivative+ki*integral;
+        
+        //set error for next entrance into PID_start function
         error_prior=error;
 
-        if(output > max){
-                output = max;
+        //cap the output to avoid errors with motor driver
+        if(output > max)
+
+            {
+                output = max; //cap at defined max of 150
             }
 
-        else if(output < (max * -1)){
-                output = -max;
+        else if(output < (max * -1))
+            
+            {
+                output = -max;  //cap at min of -150
             }
 
-        switch(pid_state){
+        //begin PID state machine 
+        switch(pid_state){  
 
-			case 1: //follow 1
+            //FOLLOW 1 case before the first thin line has been reached
+			case 1: 
 
-			lastPID = 1;
+                        //set the last state to current for re-entry upon exit
+            			lastPID = 1;  
 
-			if(distFrt>3000 && distRt>1000)
-					 {
-				pid_state=3;//uturn
-			 }
+                        // uturn/(left turn) case when front and right sensor are very close to wall
+            			if(distFrt>3000 && distRt>1000)    
+            					 
+                        {
+            				//move to the UTURN case (3)
+                            pid_state=3; //break not needed due else if
+            			}
 
-			else if(output > 0 && output<70){
-						   motorMove(100 + output,150,0,0);
-					   }
+                        //no uturn necessary if in [0,70] range move right
+            			else if(output > 0 && output<70)
+                                {   
+            					       //increase the left motor speed with PID value
+                                       // note a faster left motor is right turn
+                                	   motorMove(100 + output,150,0,0);
+            					}
 
-			else if(output < 0){
-						   motorMove(150, 100 + output * -1,0,0);
-					   }
+                        //no uturn necessary if output below zero move left
+            			else if(output < 0)
 
-			else if(output>70   )
-				 {
-					 pid_state=2;
-			}
+                                {
+            						   //increase the right motor speed with magnitude of PID value
+                                       // note a faster right motor is left turn
+                                       motorMove(150, 100 + output * -1,0,0);
+                                }
 
-			if(transmit==1){//crossline 1
-				pid_state=4;//follow 2
-			   Timer_start(DataClockFcn);
-				start = 1;
-				writeStringToUart1("first line\n");
-			}
+                        // for output larger than 70 were at an "intersection"
+            			else if(output>70   )
+            				    {
+                                //move to the intersection case (2)
+            					pid_state=2;
+            			        
+                                }
 
-			if(lightStat==2){
-				pid_state=5;//stop
-			}
+                        // check for crossing of start transmitting line
+            			// transmit = 1 implies first thin line crossed
+                         if(transmit==1)
+                            {
+                				//move to the follow 2 case to begin data TXRX
+                                pid_state=4;
 
-			break;
+                                //start the DataClockFcn in order to post DataSema
+                			    Timer_start(DataClockFcn);
 
-			case 2: //itersection
-				motorMove(230,100,0,0);
-				pid_state=lastPID;
-				break;
+                                //control variable (debugging)
+                				start = 1;
 
-			case 3: //uturn
-				spin=0;
-							while(spin<1 && stopper)
-									  {
-										 float f = ReadFrontWall_US_W();
-										 if((f<850))spin++;
-										 motorMove(250,250,0,1);
-									  }
+                                //note that the first line was crossed for debugging
+                				//writeStringToUart1("first line\n");
+            			    }
 
-							stopper=1;
-							error=0;
-							integral=0;
-							pid_state = lastPID;
-							break;
+            			// lightStat = 2 implies thick line was crossed (STOP)
+                        if(lightStat==2)
+                            {
+                                //move to the STOP case at (5)
+                				pid_state=5;
+                			}
 
-			case 4:         //follow 2
-				lastPID=4;
+            			break;   //break from this case
 
-				if(distFrt>3000 && distRt>1000)
-								 {
-							pid_state=3;//uturn
-						 }
 
-				else if(output > 0 && output<70){
-							motorMove(100 + output,150,0,0);
-							}
 
-				else if(output < 0){
-							 motorMove(150, 100 + output * -1,0,0);
-							}
+			// This is the intersection case for hard right turns
+            case 2: 
 
-				 else if(output>70  ){
-							 pid_state=2;
-						}
+                        //hard right turn with over twice power to left motor
+        				motorMove(230,100,0,0);
 
-						if(!transmit){//crossline 2
-							pid_state=6;//follow 3
-							Timer_stop(DataClockFcn);
-							start = 0;
-							writeStringToUart1("\n\rsecond line\n\r");
-						}
+                        //ensure that state machine returns to correct FOLLOW case 
+        				pid_state=lastPID;
+        				
+                        break; //break from intersection case
 
-						if(lightStat==2){
-							pid_state=5;//stop
-						}
 
+
+            //UTURN also defaulted in the case of left turns
+			case 3:
+				            
+                        spin=0; //control variable to avoid spinout
+						while(spin<1 && stopper) // enter once
+								  {
+									float f = ReadFrontWall_US_W();
+									if((f<850)) //straightened out
+                                        spin++; //avoid a spinout
+                                    //max power to both motors, reverse one motor
+									motorMove(250,250,0,1); 
+								  }
+                        //loop control variable (debugging)
+						stopper=1;
+						
+                        //reset the error as we have changed course
+                        error=0; 
+						
+                        //reset the integral as we have changed course
+                        integral=0;
+
+                        //ensure that the state machine returns to correct follow case
+						pid_state = lastPID;
+
+                        //break from the UTURN case
 						break;
 
-			case 5: //stop
-				Timer_stop(DriveClock);
-				motorStop();
-					   break;
+			//FOLLOW 2 case after the first thin line has been reached
+            case 4:
+				
+                        //set the last state to current for re-entry upon exit
+                        lastPID=4;
 
-			case 6: //follow3
-				lastPID = 6;
+                        // uturn/(left turn) case when front and right sensor are very close to wall
+                        if(distFrt>3000 && distRt>1000)    
+                                 
+                        {
+                            //move to the UTURN case (3)
+                            pid_state=3; //break not needed due to else if
+                        }
 
-				if(distFrt>3000 && distRt>1000){
-						   pid_state=3;//uturn
-						}
+				        //no uturn necessary if in [0,70] range move right
+                        else if(output > 0 && output<70)
+                                {   
+                                       //increase the left motor speed with PID value
+                                       // note a faster left motor is right turn
+                                       motorMove(100 + output,150,0,0);
+                                }
 
-				else if(output > 0 && output<70){
-						   motorMove(100 + output,150,0,0);
-						}
 
-				else if(output < 0){
-						   motorMove(150, 100 + output * -1,0,0);
-						}
+				        //no uturn necessary if output below zero move left
+                        else if(output < 0)
 
-				else if(output>70   ){
-						   pid_state=2;
-					   }
+                                {
+                                       //increase the right motor speed with magnitude of PID value
+                                       // note a faster right motor is left turn
+                                       motorMove(150, 100 + output * -1,0,0);
+                                }
 
-					   if(lightStat==2){
-						   pid_state=5;//stop
-					   }
+                        // for output larger than 70 were at an "intersection"
+                        else if(output>70   )
+                                {
+                                //move to the intersection case (2)
+                                pid_state=2;
+                                
+                                }
 
-					   break;
-				 }
+                        // check for crossing of stop transmitting line
+                        // transmit = 0 implies second thin line crossed
+						if(!transmit)
+                            {
+                                //move to the follow 3 case to end data TXRX
+    							pid_state=6;
 
-             }
+                                //Stop the DataSema from being posted
+    							Timer_stop(DataClockFcn);
 
-    }
+                                //control variable (debugging)
+    							start = 0;
+
+                                //denote in UART that second thin line has been crossed (debugging)
+    							//writeStringToUart1("\n\rsecond line\n\r");
+						    }
+
+						// lightStat = 2 implies thick line was crossed (STOP)
+                        if(lightStat==2)
+                            {
+                                //move to the STOP case at (5)
+                                pid_state=5;
+                            }
+
+                        break;   //break from this case
+
+            //this is the full STOP case that ends PID and DriveSema
+			case 5: 
+                        //stop from posting DriveSema
+				        Timer_stop(DriveClock);
+				        
+                        //stop the Motors
+                        motorStop();
+
+                        //break from the stop case
+					    break;
+
+            //FOLLOW 3 case after the second thin line has been reached
+			case 6: 
+
+                        //set the last state to current for re-entry upon exit
+        				lastPID = 6;
+
+				
+                        // uturn/(left turn) case when front and right sensor are very close to wall
+                        if(distFrt>3000 && distRt>1000)    
+                                 
+                        {
+                            //move to the UTURN case (3)
+                            pid_state=3; //break not needed due to else if
+                        }
+
+				        //no uturn necessary if in [0,70] range move right
+                        else if(output > 0 && output<70)
+                                {   
+                                       //increase the left motor speed with PID value
+                                       // note a faster left motor is right turn
+                                       motorMove(100 + output,150,0,0);
+                                }
+
+
+				        //no uturn necessary if output below zero move left
+                        else if(output < 0)
+
+                                {
+                                       //increase the right motor speed with magnitude of PID value
+                                       // note a faster right motor is left turn
+                                       motorMove(150, 100 + output * -1,0,0);
+                                }
+
+                        // for output larger than 70 were at an "intersection"
+                        else if(output>70   )
+                                {
+                                //move to the intersection case (2)
+                                pid_state=2;
+                                
+                                }
+
+					   // lightStat = 2 implies thick line was crossed (STOP)
+                        if(lightStat==2)
+                            {
+                                //move to the STOP case at (5)
+                                pid_state=5;
+                            }
+
+                        break;   //break from this case
+				 
+
+                 } //close swtich statement
+
+             } //close while loop
+ 
+    }   //close PID_start function
 
 
 void motorMove(unsigned long leftPower, unsigned long rightPower, int rightdir, int leftdir){
 
+	//Enable PWM pins
     PWMOutputState (PWM1_BASE, PWM_OUT_3_BIT | PWM_OUT_2_BIT, true);
-    if( rightdir ) {//if direction is forward
+    if( rightdir ) {
+		// Right wheel moves forward by setting GPIO pin 6 to HIGH
         GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6, 0b01000000);
         PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3,rightPower);
     }
-    else {
+    else { 
+		// Right wheel moves backwards
         GPIOPinWrite(GPIO_PORTB_BASE, GPIO_PIN_6, 0);
         PWMPulseWidthSet(PWM1_BASE, PWM_OUT_3,rightPower);
     }
-    if( leftdir ) {//if direction is forward
-        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
+    if( leftdir ) { 
+		// Left wheel moves forward by setting GPIO pin 1 to HIGH
+        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0b00000010);
         PWMPulseWidthSet(PWM1_BASE, PWM_OUT_2,leftPower);
     }
     else {
-        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3, 0);
+		// Left wheel moves backwards 
+        GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_1, 0);
         PWMPulseWidthSet(PWM1_BASE, PWM_OUT_2,leftPower);
     }
 
 }
 
 void motorStop(){
+	//Disable PWM pins 
     PWMOutputState (PWM1_BASE, PWM_OUT_3_BIT | PWM_OUT_2_BIT, false);
 }
 
+// Use ADC to pull value of the right distance sensor
+float ReadWall_IR()
 
-float ReadWall_IR(){
+{
+        
         //Clear interrupt flag
         ADCIntClear(ADC0_BASE, 3);
+        
         //Trigger ADC
         ADCProcessorTrigger(ADC0_BASE, 3);
+        
         //wait for conversion
         while(!ADCIntStatus(ADC0_BASE, 3, false)){}
+        
         //retrieve data
         ADCSequenceDataGet(ADC0_BASE, 3, &result);
 
+        //return the result as a float
         return (float)result;
+
 }
 
-float ReadFrontWall_US_W(){
+float ReadFrontWall_US_W()
+
+{
 
           //Clear interrupt flag
           ADCIntClear(ADC1_BASE, 3);
+          
           //Trigger ADC
           ADCProcessorTrigger(ADC1_BASE, 3);
+          
           //wait for conversion
           while(!ADCIntStatus(ADC1_BASE, 3, false)){}
+          
           //retrieve data
           ADCSequenceDataGet(ADC1_BASE, 3, &result1);
 
-          return (float)result1;}
+          //return the result as a float
+          return (float)result1;
 
+}
 
-void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
-    // first I set the pin to high
+//ReadLightW is the subroutine of a timer that has a period of 30 microsecs
+void ReadLightW() { 
+   
+    //GPIO pin connected to light sensor (GPIO pin 2) is set to HIGH the very first time timer starts
     if(set == 0){
+		// GPIO pin 3 is turned off so the tivaC LED will be blue
         GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3,0b00000100);
-        set = 1;    //assign 1 to set, so code doesn't set pin to high again unless on white surface
+        set = 1;    // 1 is assigned to set, so code doesn't set pin to high again unless on white surface
     }
 
+	// GPIO pin 2 is set to be an input in order to detect when light sensor pin goes low
     if((setHigh%2) == 0)
         GPIOPinTypeGPIOInput(GPIO_PORTF_BASE, GPIO_PIN_2); //set GPIO pin t input
 
+	
     if((setHigh%3) == 0){
-        //if (start) {    //skip code the very first time
-        if(GPIOPinRead (GPIO_PORTF_BASE, GPIO_PIN_2) == 0) { //if black line is NOT read
+		// If light sensor has discharged the light sensor is on white surface
+        if(GPIOPinRead (GPIO_PORTF_BASE, GPIO_PIN_2) == 0) { 
+			
+            set = 0; // set is once again assigned a 0 so light sensor pin can be charged up 
 
-            set = 0;
-
+			// If statementt checks to see if Robot passed over a thin black line
             if (length > 500 && lightStat == 1) {
 
+			    // If the robot has not been transmitting the robot starts transmitting data and vice versa
                 if (transmit  == 0)
-                        transmit = 1;
+						// transmit is a flag variable that indicates when the robot should start transmitting
+                        transmit = 1; // Start transmitting data
 
                 else
-                    transmit = 0;
+                    transmit = 0; // Stop transmitting data
             }
 
+			//Reset variables
             length = 0;
             setHigh = 0;
             lightStat = 0;
@@ -338,24 +508,26 @@ void ReadLightW() { //infraRed interrupt triggers every 60 micro-seconds
 
         else {  //if black is read increase length
 
-            length++;
-            setHigh = 1;
-            GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2);
-            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001110);
-            lightStat = 1;
+            length++; //length keeps track of how long sensor has been on a black surface
+            setHigh = 1; //set high is set to 1 and increased to 2 at the bottom of subroutine
+            GPIOPinTypeGPIOOutput(GPIO_PORTF_BASE, GPIO_PIN_2); // Light sensor is charged up again
+            GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001110); // Led changes colour to cyan
+            lightStat = 1; //this indicates that light sensor was on a thin black line
 
         }
 
     }
 
-    setHigh++;
+    setHigh++; //setHigh continually increases to keep track of the state light sensor should be in
 
-    //start = 1;  //set start to 1 so it never sets the GPIO to to low
-    if (length > limit) { //stop motors if sensor continuously reads black
+	// stop motors if sensor continuously reads black
+    if (length > limit) {  
 
+		// If length is greater than a certain value the light sensor  has read
+		// black for a while meaning Robot has one over a thick black line
         GPIOPinWrite(GPIO_PORTF_BASE, GPIO_PIN_2|GPIO_PIN_3, 0b00001000);  //turn on green led to indicate this
-        Timer_stop(timer0);
-        lightStat = 2;
+        Timer_stop(timer0); // light sensor subroutine is disabled 
+        lightStat = 2;	// lightStat is set to 2 when Robot goes over a thick black line
         length = 0;
 
     }
